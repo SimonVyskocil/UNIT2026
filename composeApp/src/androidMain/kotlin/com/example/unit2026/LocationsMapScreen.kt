@@ -14,8 +14,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 
 // Importy vlastních tříd z commonMain
@@ -249,27 +252,41 @@ fun LocationsMapScreen() {
                     Spacer(modifier = Modifier.height(16.dp))
 
                     // Popis
-                    Text(
-                        text = "Tady později napojíme popis, otevírací dobu nebo cokoliv dalšího z databáze.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    selectedPoi?.description?.let { desc ->
+                        Text(
+                            text = desc,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                    }
 
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Placeholder pro fotku
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = MaterialTheme.shapes.medium
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                text = "🖼 Tady bude fotka",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                    // Zobrazení fotky (pokud existuje)
+                    if (selectedPoi!!.photos.isNotEmpty()) {
+                        AsyncImage(
+                            model = selectedPoi!!.photos.first(),
+                            contentDescription = "Foto místa",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp)
+                                .clip(MaterialTheme.shapes.medium),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        // Placeholder pro fotku
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = MaterialTheme.shapes.medium
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = "Žádná fotka k dispozici",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }

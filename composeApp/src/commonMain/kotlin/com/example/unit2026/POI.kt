@@ -7,5 +7,7 @@ data class POI(
     val id: Int,
     val name: String,
     val latitude: Double,
-    val longitude: Double
+    val longitude: Double,
+    val description: String? = null,
+    val photos: List<String> = emptyList()
 )
