@@ -8,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -56,66 +57,102 @@ fun SwiperScreen(onPlaceSaved: (Place) -> Unit) {
 
     var currentOffsetX by remember { mutableStateOf(0f) }
 
-    val backgroundColor = when {
-        currentOffsetX > 50 -> MaterialTheme.colorScheme.primary.copy(alpha = (currentOffsetX / 600f).coerceIn(0f, 0.5f))
-        currentOffsetX < -50 -> Color.Red.copy(alpha = (-currentOffsetX / 600f).coerceIn(0f, 0.5f))
-        else -> MaterialTheme.colorScheme.background
-    }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundColor)
-            .padding(16.dp),
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
-        if (places.isNotEmpty()) {
-            // Show cards in reverse so the first one is on top
-            places.asReversed().forEachIndexed { index, place ->
-                val isTopCard = index == places.size - 1
-                SwipeableCard(
-                    onSwipeLeft = {
-                        places.remove(place)
-                        currentOffsetX = 0f
-                    },
-                    onSwipeRight = {
-                        onPlaceSaved(place)
-                        places.remove(place)
-                        currentOffsetX = 0f
-                        println("Saved: ${place.name}")
-                    },
-                    onOffsetChanged = { offset ->
-                        if (isTopCard) {
-                            currentOffsetX = offset
-                        }
-                    }
-                ) {
-                    PlaceCard(place = place)
-                }
-            }
-        } else {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "No more places!",
-                    style = MaterialTheme.typography.headlineMedium
+        // Left side overlay
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(0.5f)
+                .align(Alignment.CenterStart)
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            Color.Red.copy(
+                                alpha = if (currentOffsetX < -50) (-currentOffsetX / 600f).coerceIn(0f, 0.5f) else 0f
+                            ),
+                            Color.Transparent
+                        )
+                    )
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = {
-                        // Reset for demo
-                        places.addAll(
-                            listOf(
-                                Place("1", "Cozy Cafe", "A very quiet and comfortable place to study or work with great coffee.", 4.8, "Low", "Excellent", "Available", "08:00 - 20:00", listOf("cafe1", "cafe2")),
-                                Place("2", "Modern Library", "Spacious library with high-speed internet and many power outlets.", 4.5, "Minimal", "Good", "None", "09:00 - 22:00", listOf("lib1", "lib2")),
-                                Place("3", "Urban Hub", "Trendy coworking space in the city center with a vibrant atmosphere.", 4.2, "Medium", "Superior", "Full Menu", "24/7", listOf("hub1"))
+        )
+
+        // Right side overlay
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(0.5f)
+                .align(Alignment.CenterEnd)
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            MaterialTheme.colorScheme.primary.copy(
+                                alpha = if (currentOffsetX > 50) (currentOffsetX / 600f).coerceIn(0f, 0.5f) else 0f
                             )
                         )
-                    },
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Icon(Icons.Default.Refresh, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Refresh Places")
+                    )
+                )
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (places.isNotEmpty()) {
+                // Show cards in reverse so the first one is on top
+                places.asReversed().forEachIndexed { index, place ->
+                    val isTopCard = index == places.size - 1
+                    SwipeableCard(
+                        onSwipeLeft = {
+                            places.remove(place)
+                            currentOffsetX = 0f
+                        },
+                        onSwipeRight = {
+                            onPlaceSaved(place)
+                            places.remove(place)
+                            currentOffsetX = 0f
+                            println("Saved: ${place.name}")
+                        },
+                        onOffsetChanged = { offset ->
+                            if (isTopCard) {
+                                currentOffsetX = offset
+                            }
+                        }
+                    ) {
+                        PlaceCard(place = place)
+                    }
+                }
+            } else {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "No more places!",
+                        style = MaterialTheme.typography.headlineMedium
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            // Reset for demo
+                            places.addAll(
+                                listOf(
+                                    Place("1", "Cozy Cafe", "A very quiet and comfortable place to study or work with great coffee.", 4.8, "Low", "Excellent", "Available", "08:00 - 20:00", listOf("cafe1", "cafe2")),
+                                    Place("2", "Modern Library", "Spacious library with high-speed internet and many power outlets.", 4.5, "Minimal", "Good", "None", "09:00 - 22:00", listOf("lib1", "lib2")),
+                                    Place("3", "Urban Hub", "Trendy coworking space in the city center with a vibrant atmosphere.", 4.2, "Medium", "Superior", "Full Menu", "24/7", listOf("hub1"))
+                                )
+                            )
+                        },
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Refresh Places")
+                    }
                 }
             }
         }
