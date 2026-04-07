@@ -198,4 +198,7 @@ private fun MetricRow(
     }
 }
 
-private fun formatMetric(value: Double): String = String.format("%.1f/5", value)
+private fun formatMetric(value: Double): String {
+    val rounded = (value * 10).toInt() / 10.0
+    return "$rounded/5"
+}

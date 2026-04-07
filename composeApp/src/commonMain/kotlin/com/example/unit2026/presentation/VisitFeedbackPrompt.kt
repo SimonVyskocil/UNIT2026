@@ -1,6 +1,8 @@
 package com.example.unit2026.presentation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,17 +13,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -47,23 +45,21 @@ data class VisitFeedbackDraft(
     val hasPowerOutlet: Boolean = false,
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VisitFeedbackPrompt(
     places: List<Place>,
     modifier: Modifier = Modifier,
     onDismiss: () -> Unit,
     onConfirmVisit: (VisitFeedbackDraft) -> Unit,
-) {
-    var draft by remember(places) {
+    ) {
+    val safePlaces = places.take(6)
+    var draft by remember(safePlaces) {
         mutableStateOf(
             VisitFeedbackDraft(
-                selectedPlaceId = places.firstOrNull()?.id,
+                selectedPlaceId = safePlaces.firstOrNull()?.id,
             ),
         )
     }
-    var isPlaceMenuExpanded by remember { mutableStateOf(false) }
-    val selectedPlaceName = places.firstOrNull { it.id == draft.selectedPlaceId }?.name.orEmpty()
 
     Box(
         modifier = modifier
@@ -98,38 +94,28 @@ fun VisitFeedbackPrompt(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
-                ExposedDropdownMenuBox(
-                    expanded = isPlaceMenuExpanded,
-                    onExpandedChange = { isPlaceMenuExpanded = !isPlaceMenuExpanded },
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    OutlinedTextField(
-                        value = selectedPlaceName,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Cafe") },
-                        trailingIcon = {
-                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = isPlaceMenuExpanded)
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(),
+                    Text(
+                        text = "Cafe",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
                     )
-
-                    ExposedDropdownMenu(
-                        expanded = isPlaceMenuExpanded,
-                        onDismissRequest = { isPlaceMenuExpanded = false },
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        places.forEach { place ->
-                            DropdownMenuItem(
-                                text = { Text(place.name) },
+                        safePlaces.forEach { place ->
+                            PlaceChoiceRow(
+                                placeName = place.name,
+                                selected = draft.selectedPlaceId == place.id,
                                 onClick = {
                                     draft = draft.copy(selectedPlaceId = place.id)
-                                    isPlaceMenuExpanded = false
-                                },
+                                }
                             )
                         }
                     }
-                }
+                }                
 
                 RatingSlider(
                     label = "Noise",
@@ -200,6 +186,50 @@ fun VisitFeedbackPrompt(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PlaceChoiceRow(
+    placeName: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = 1.dp,
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                shape = RoundedCornerShape(16.dp),
+            )
+            .background(
+                color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f) else Color.Transparent,
+                shape = RoundedCornerShape(16.dp),
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = placeName,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+        )
+        Box(
+            modifier = Modifier
+                .border(
+                    width = 1.dp,
+                    color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                    shape = CircleShape,
+                )
+                .background(
+                    color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    shape = CircleShape,
+                )
+                .padding(5.dp),
+        )
     }
 }
 
