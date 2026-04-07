@@ -13,7 +13,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            App()
+            //App()
+            LocationsMapScreen()
         }
     }
 }
@@ -21,5 +22,6 @@ class MainActivity : ComponentActivity() {
 @Preview
 @Composable
 fun AppAndroidPreview() {
-    App()
+    //App()
+    LocationsMapScreen()
 }
