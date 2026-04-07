@@ -7,34 +7,43 @@ import android.graphics.BitmapFactory
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-// Importy tvých vlastních tříd z commonMain
+import kotlinx.coroutines.launch
+
+// Importy vlastních tříd z commonMain
 import com.example.unit2026.POI
-import com.example.unit2026.DirectionsService
 import com.example.unit2026.LocationService
-import com.example.unit2026.decodePolyline
-// Import Android Mapy
+
+// Importy pro Google Maps
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.MapsInitializer
 import com.google.android.gms.maps.OnMapsSdkInitializedCallback
 import com.google.android.gms.maps.model.*
 import com.google.maps.android.compose.*
-import kotlinx.coroutines.launch
 
+// Pomocná funkce pro výpočet vzdálenosti (vrací hezky naformátovaný text)
+fun calculateDistance(userLat: Double, userLng: Double, poiLat: Double, poiLng: Double): String {
+    val results = FloatArray(1)
+    android.location.Location.distanceBetween(userLat, userLng, poiLat, poiLng, results)
+    val distanceInMeters = results[0]
+
+    return if (distanceInMeters < 1000) {
+        "${distanceInMeters.toInt()} m"
+    } else {
+        "${String.format("%.1f", distanceInMeters / 1000f)} km"
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("MissingPermission")
 @Composable
 fun LocationsMapScreen() {
@@ -43,21 +52,36 @@ fun LocationsMapScreen() {
 
     // Inicializace služeb
     val locationService = remember { LocationService() }
-    val apiKey = "AIzaSyB7so83JXHEDecCxYQT_5UOWumqc-lhJi8" // Pozor, API klíč by neměl být v kódu, ale pro hackathon OK
-    val directionsService = remember { DirectionsService(apiKey) }
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
+    // Stavy pro Mapu a POI
     var pois by remember { mutableStateOf<List<POI>>(emptyList()) }
     var hasLocationPermission by remember { mutableStateOf(false) }
-    var routePoints by remember { mutableStateOf<List<LatLng>>(emptyList()) }
     var selectedPoi by remember { mutableStateOf<POI?>(null) }
-    var isNavigating by remember { mutableStateOf(false) }
     var customMarkerIcon by remember { mutableStateOf<BitmapDescriptor?>(null) }
+
+    // Zde ukládáme aktuální polohu uživatele pro výpočet vzdálenosti
+    var currentUserLocation by remember { mutableStateOf<LatLng?>(null) }
+
+    // Stavy pro Bottom Sheet (Vysouvací panel)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+    var showSheet by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         hasLocationPermission = permissions.values.all { it }
+    }
+
+    // Načítání polohy (zavolá se při startu a vždy, když se změní povolení)
+    LaunchedEffect(hasLocationPermission) {
+        if (hasLocationPermission) {
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                location?.let {
+                    currentUserLocation = LatLng(it.latitude, it.longitude)
+                }
+            }
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -67,28 +91,37 @@ fun LocationsMapScreen() {
             }
         })
 
-        permissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            )
-        )
+        // Kontrola oprávnění
+        val fineLocation = androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
+        hasLocationPermission = fineLocation == android.content.pm.PackageManager.PERMISSION_GRANTED
 
-        // Načtení dat ze služby
+        if (!hasLocationPermission) {
+            permissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+
+        // Načtení bodů
         pois = locationService.fetchLocations()
 
-        // Načtení custom ikony (ošetřeno proti pádu)
+        // Načtení custom pinu
         try {
-            val bitmap = BitmapFactory.decodeResource(context.resources, R.drawable.custom_pin)
-            if (bitmap != null) {
-                val density = context.resources.displayMetrics.density
-                val height = (42 * density).toInt()
-                val width = (height * bitmap.width) / bitmap.height
-                val scaledBitmap = Bitmap.createScaledBitmap(bitmap, width, height, true)
-                customMarkerIcon = BitmapDescriptorFactory.fromBitmap(scaledBitmap)
+            val resId = context.resources.getIdentifier("custom_pin", "drawable", context.packageName)
+            if (resId != 0) {
+                val bitmap = BitmapFactory.decodeResource(context.resources, resId)
+                if (bitmap != null) {
+                    val density = context.resources.displayMetrics.density
+                    val height = (42 * density).toInt()
+                    val width = (height * bitmap.width) / bitmap.height
+                    val scaledBitmap = Bitmap.createScaledBitmap(bitmap, width, height, true)
+                    customMarkerIcon = BitmapDescriptorFactory.fromBitmap(scaledBitmap)
+                }
             }
         } catch (e: Exception) {
-            Log.e("LocationsMapScreen", "Error loading custom pin", e)
+            Log.e("LocationsMapScreen", "Nenalezen custom_pin, pouzije se defaultni ikona.")
         }
     }
 
@@ -97,10 +130,9 @@ fun LocationsMapScreen() {
             MapProperties(
                 isMyLocationEnabled = hasLocationPermission,
                 mapStyleOptions = try {
-                    MapStyleOptions.loadRawResourceStyle(context, R.raw.goon_maps_style)
-                } catch (e: Exception) {
-                    null
-                }
+                    val resId = context.resources.getIdentifier("goon_maps_style", "raw", context.packageName)
+                    if (resId != 0) MapStyleOptions.loadRawResourceStyle(context, resId) else null
+                } catch (e: Exception) { null }
             )
         )
     }
@@ -114,16 +146,19 @@ fun LocationsMapScreen() {
         position = CameraPosition.fromLatLngZoom(prague, 10f)
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.navigationBars)
+    ) {
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState,
-            properties = mapProperties,
+            properties = mapProperties.copy(isMyLocationEnabled = hasLocationPermission),
             uiSettings = uiSettings,
             onMapClick = {
+                showSheet = false
                 selectedPoi = null
-                isNavigating = false
-                routePoints = emptyList()
             }
         ) {
             pois.forEach { poi ->
@@ -133,34 +168,9 @@ fun LocationsMapScreen() {
                     icon = customMarkerIcon,
                     onClick = {
                         selectedPoi = poi
-                        isNavigating = false
-                        routePoints = emptyList()
-                        false
+                        showSheet = true
+                        true
                     }
-                )
-            }
-
-            if (isNavigating && routePoints.isNotEmpty()) {
-                // Vrstva stínu pod čarou
-                Polyline(
-                    points = routePoints,
-                    color = Color(0x1A000000),
-                    width = 45f,
-                    startCap = RoundCap(),
-                    endCap = RoundCap(),
-                    jointType = JointType.ROUND,
-                    zIndex = 1f
-                )
-
-                // Hlavní bílá čára ("White Sauce")
-                Polyline(
-                    points = routePoints,
-                    color = Color(0xFFFDFDFD),
-                    width = 30f,
-                    startCap = RoundCap(),
-                    endCap = RoundCap(),
-                    jointType = JointType.ROUND,
-                    zIndex = 2f
                 )
             }
         }
@@ -174,62 +184,93 @@ fun LocationsMapScreen() {
                 if (hasLocationPermission) {
                     fusedLocationClient.lastLocation.addOnSuccessListener { location ->
                         location?.let {
+                            val userLatLng = LatLng(it.latitude, it.longitude)
+                            currentUserLocation = userLatLng // Uložení pozice pro výpočet
                             scope.launch {
                                 cameraPositionState.animate(
-                                    CameraUpdateFactory.newLatLngZoom(LatLng(it.latitude, it.longitude), 15f)
+                                    CameraUpdateFactory.newLatLngZoom(userLatLng, 15f)
                                 )
                             }
                         }
                     }
+                } else {
+                    permissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION))
                 }
             }
         ) {
-            Icon(Icons.Default.MyLocation, contentDescription = "My Location")
+            Icon(Icons.Default.MyLocation, contentDescription = "Moje poloha")
         }
 
-        // Navigační panel
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 32.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            AnimatedVisibility(visible = selectedPoi != null || isNavigating) {
-                if (!isNavigating) {
-                    ExtendedFloatingActionButton(
-                        onClick = {
-                            selectedPoi?.let { poi ->
-                                if (hasLocationPermission) {
-                                    fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                                        location?.let {
-                                            scope.launch {
-                                                val origin = "${it.latitude},${it.longitude}"
-                                                val destination = "${poi.latitude},${poi.longitude}"
-                                                val pointsString = directionsService.getRoutePoints(origin, destination)
-                                                if (pointsString != null) {
-                                                    routePoints = decodePolyline(pointsString).map { p -> LatLng(p.latitude, p.longitude) }
-                                                    isNavigating = true
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        icon = { Icon(Icons.Default.Navigation, contentDescription = null) },
-                        text = { Text("Navigovat") }
+        // ==========================================
+        // VYSOUVACÍ PANEL S INFORMACEMI (BottomSheet)
+        // ==========================================
+        if (showSheet && selectedPoi != null) {
+            ModalBottomSheet(
+                onDismissRequest = {
+                    showSheet = false
+                    selectedPoi = null
+                },
+                sheetState = sheetState,
+                containerColor = MaterialTheme.colorScheme.surface,
+                dragHandle = { BottomSheetDefaults.DragHandle() }
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 24.dp, end = 24.dp, bottom = 48.dp)
+                ) {
+                    // Jméno místa
+                    Text(
+                        text = selectedPoi!!.name,
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
-                } else {
-                    Button(
-                        onClick = {
-                            isNavigating = false
-                            routePoints = emptyList()
-                            selectedPoi = null
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // --- ZOBRAZENÍ VZDÁLENOSTI ---
+                    val distanceText = if (currentUserLocation != null) {
+                        calculateDistance(
+                            userLat = currentUserLocation!!.latitude,
+                            userLng = currentUserLocation!!.longitude,
+                            poiLat = selectedPoi!!.latitude,
+                            poiLng = selectedPoi!!.longitude
+                        )
+                    } else {
+                        "Neznámá"
+                    }
+
+                    Text(
+                        text = "📍 Vzdálenost: $distanceText",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Popis
+                    Text(
+                        text = "Tady později napojíme popis, otevírací dobu nebo cokoliv dalšího z databáze.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Placeholder pro fotku
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = MaterialTheme.shapes.medium
                     ) {
-                        Text("Zrušit trasu")
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "🖼 Tady bude fotka",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
