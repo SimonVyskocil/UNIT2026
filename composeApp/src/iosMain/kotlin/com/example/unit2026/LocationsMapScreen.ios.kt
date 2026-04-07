@@ -3,6 +3,16 @@ package com.example.unit2026
 import coil3.ImageLoader
 import coil3.compose.setSingletonImageLoaderFactory
 import coil3.network.ktor3.KtorNetworkFetcherFactory // (Nebo ktor2 podle toho, co jsi zjistil)
+import platform.UIKit.UIUserInterfaceStyle
+import platform.MapKit.MKMapViewDelegateProtocol
+import platform.MapKit.*
+
+import platform.CoreGraphics.CGRectMake
+import platform.CoreGraphics.CGSizeMake
+import platform.UIKit.UIGraphicsBeginImageContextWithOptions
+import platform.UIKit.UIGraphicsEndImageContext
+import platform.UIKit.UIGraphicsGetImageFromCurrentImageContext
+
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -25,6 +35,7 @@ import kotlinx.cinterop.useContents
 import kotlinx.coroutines.launch
 import platform.CoreLocation.*
 import platform.MapKit.*
+import platform.UIKit.UIImage
 import platform.darwin.NSObject
 import kotlin.math.roundToInt
 
@@ -90,11 +101,76 @@ actual fun LocationsMapScreen() {
     // 2. Delegát pro Mapu (Klikání na piny)
     val mapDelegate = remember {
         object : NSObject(), MKMapViewDelegateProtocol {
+
+            // 1. VYKRESLENÍ VLASTNÍCH BODŮ (A ZMENŠENÍ PINU)
+            @Suppress("CONFLICTING_OVERLOADS")
+            @ObjCSignatureOverride
+            override fun mapView(mapView: MKMapView, viewForAnnotation: MKAnnotationProtocol): MKAnnotationView? {
+                // Pokud jde o modrou tečku polohy uživatele, necháme výchozí systémový vzhled
+                if (viewForAnnotation is MKUserLocation) return null
+
+                val identifier = "CustomPin"
+                var view = mapView.dequeueReusableAnnotationViewWithIdentifier(identifier)
+
+                if (view == null) {
+                    view = MKAnnotationView(viewForAnnotation, identifier)
+                    view.canShowCallout = false // Zabráníme iOS bublině, máme vlastní BottomSheet
+                } else {
+                    view.annotation = viewForAnnotation
+                }
+
+                val originalImage = UIImage.imageNamed("custom_pin")
+                if (originalImage != null) {
+
+                    // 1. Nastavíme MAXIMÁLNÍ velikost (výšku nebo šířku), kterou pin smí mít
+                    // Zkusil jsem 48.0, což je standardní profi velikost. Pokud chceš ještě větší, dej třeba 55.0.
+                    val maxSize = 48.0
+
+                    var finalWidth = maxSize
+                    var finalHeight = maxSize
+
+                    // 2. MAGIE: Vypočítáme poměr stran, aby se pin NESPLÁCNUL
+                    // V Kotlin/Native musíme použít useContents, abychom se dostali k rozměrům C-struktury
+                    originalImage.size.useContents {
+                        val originalWidth = width
+                        val originalHeight = height
+
+                        if (originalWidth > originalHeight) {
+                            // Obrázek je na šířku
+                            finalHeight = (maxSize * originalHeight) / originalWidth
+                        } else if (originalHeight > originalWidth) {
+                            // Obrázek je na výšku
+                            finalWidth = (maxSize * originalWidth) / originalHeight
+                        }
+                        // Pokud jsou stejné, zůstane maxSize x maxSize
+                    }
+
+                    // 3. Vykreslíme zmenšený obrázek na plátno s SPRÁVNÝM POMĚREM STRAN
+                    val targetSize = CGSizeMake(finalWidth, finalHeight)
+                    UIGraphicsBeginImageContextWithOptions(targetSize, false, 0.0) // 0.0 používá správné rozlišení displeje (Retina)
+                    originalImage.drawInRect(CGRectMake(0.0, 0.0, finalWidth, finalHeight))
+                    val resizedImage = UIGraphicsGetImageFromCurrentImageContext()
+                    UIGraphicsEndImageContext()
+
+                    view.image = resizedImage
+
+                    // 4. POSUNUTÍ PINU (Kritické pro piny se špičkou dole!)
+                    // Apple dává střed obrázku na souřadnici. Pokud má pin špičku dole,
+                    // musíme ho posunout o polovinu výšky nahoru.
+                    // CGPointMake(x_posun, y_posun). Záporné Y = posun nahoru.
+                    view.centerOffset = platform.CoreGraphics.CGPointMake(0.0, -finalHeight / 2.0)
+                }
+
+                return view
+            }
+
+            // 2. KLIKNUTÍ NA PIN (OTEVŘENÍ PANELU)
             @Suppress("CONFLICTING_OVERLOADS")
             @ObjCSignatureOverride
             override fun mapView(mapView: MKMapView, didSelectAnnotationView: MKAnnotationView) {
                 val annotation = didSelectAnnotationView.annotation
                 if (annotation is MKPointAnnotation) {
+                    // V subtitle máme schované ID z databáze
                     val idString = annotation.subtitle
                     val poiId = idString?.toIntOrNull()
                     if (poiId != null) {
@@ -104,6 +180,7 @@ actual fun LocationsMapScreen() {
                 }
             }
 
+            // 3. ODZNAČENÍ PINU (ZAVŘENÍ PANELU)
             @Suppress("CONFLICTING_OVERLOADS")
             @ObjCSignatureOverride
             override fun mapView(mapView: MKMapView, didDeselectAnnotationView: MKAnnotationView) {
@@ -135,6 +212,19 @@ actual fun LocationsMapScreen() {
                 map.showsUserLocation = true
                 map.delegate = mapDelegate
                 mapViewRef = map
+
+                // 🌑 Vynucení Dark Mode
+                map.overrideUserInterfaceStyle = UIUserInterfaceStyle.UIUserInterfaceStyleDark
+
+                // 🧹 Skrytí všech výchozích bodů (památky, obchody, metro atd.)
+                map.pointOfInterestFilter = MKPointOfInterestFilter.filterExcludingAllCategories()
+
+                val pragueCenter = CLLocationCoordinate2DMake(50.0755, 14.4378)
+                // Hodnoty 15000.0 znamenají šířku a výšku záběru v metrech (cca 15x15 km).
+                // Pokud chceš mapu víc přiblížit, dej třeba 5000.0.
+                val region = MKCoordinateRegionMakeWithDistance(pragueCenter, 15000.0, 15000.0)
+                map.setRegion(region, animated = false)
+
                 map
             },
             update = { map ->
