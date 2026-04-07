@@ -1,6 +1,8 @@
 package com.example.unit2026.presentation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,21 +24,25 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.unit2026.database.AuthRepository
+import com.example.unit2026.database.SupabaseClientProvider
+import kotlinx.coroutines.launch
 
 data class UserAccountUi(
     val displayName: String,
     val email: String,
-    val university: String,
-    val homeCity: String,
-    val savedPlaces: Int,
-    val reviewsCount: Int,
-    val currentPlan: String,
 )
 
 @Composable
@@ -47,6 +53,33 @@ fun UserProfileScreen(
     onThemeToggle: (Boolean) -> Unit,
     onLogoutClick: () -> Unit,
 ) {
+    val authRepository = remember { AuthRepository(SupabaseClientProvider.client) }
+    val scope = rememberCoroutineScope()
+    var profileVersion by remember { mutableStateOf(0) }
+
+    val isLoggedIn = remember(profileVersion) {
+        authRepository.isLoggedIn()
+    }
+    val resolvedName = remember(profileVersion) {
+        authRepository.currentFullName().ifBlank { "Guest User" }
+    }
+    val resolvedEmail = remember(profileVersion) {
+        authRepository.currentUserEmail() ?: "Not signed in"
+    }
+    var selectedLanguage by remember { mutableStateOf("EN") }
+    val resolvedStatus = remember(profileVersion) {
+        if (isLoggedIn) "Signed in" else "Guest"
+    }
+    val resolvedInitials = remember(resolvedName) {
+        resolvedName
+            .split(" ")
+            .filter { it.isNotBlank() }
+            .take(2)
+            .joinToString("") { it.take(1) }
+            .ifBlank { "GU" }
+            .uppercase()
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -87,7 +120,7 @@ fun UserProfileScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = account.displayName.take(2).uppercase(),
+                        text = resolvedInitials,
                         color = MaterialTheme.colorScheme.onPrimary,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
@@ -96,33 +129,20 @@ fun UserProfileScreen(
 
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = account.displayName,
+                        text = resolvedName,
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text = account.email,
+                        text = resolvedEmail,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = "${account.university} • ${account.homeCity}",
+                        text = resolvedStatus,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
-        }
-
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            AccountStatCard(
-                label = "Saved",
-                value = account.savedPlaces.toString(),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            AccountStatCard(
-                label = "Reviews",
-                value = account.reviewsCount.toString(),
-                modifier = Modifier.fillMaxWidth(),
-            )
         }
 
         Card(
@@ -140,10 +160,8 @@ fun UserProfileScreen(
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
                 )
-                InfoRow(label = "Plan", value = account.currentPlan)
-                InfoRow(label = "Email", value = account.email)
-                InfoRow(label = "School", value = account.university)
-                InfoRow(label = "City", value = account.homeCity)
+                InfoRow(label = "Name", value = resolvedName)
+                InfoRow(label = "Email", value = resolvedEmail)
             }
         }
 
@@ -176,8 +194,44 @@ fun UserProfileScreen(
             }
         }
 
+        Card(
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = "Language",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    LanguageChip(
+                        label = "CZ",
+                        selected = selectedLanguage == "CZ",
+                        onClick = { selectedLanguage = "CZ" },
+                    )
+                    LanguageChip(
+                        label = "EN",
+                        selected = selectedLanguage == "EN",
+                        onClick = { selectedLanguage = "EN" },
+                    )
+                }
+            }
+        }
+
         Button(
-            onClick = onLogoutClick,
+            onClick = {
+                scope.launch {
+                    authRepository.logout()
+                    profileVersion++
+                    onLogoutClick()
+                }
+            },
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text("Log out")
@@ -188,30 +242,30 @@ fun UserProfileScreen(
 }
 
 @Composable
-private fun AccountStatCard(
+private fun LanguageChip(
     label: String,
-    value: String,
-    modifier: Modifier = Modifier,
+    selected: Boolean,
+    onClick: () -> Unit,
 ) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    Box(
+        modifier = Modifier
+            .border(
+                width = 1.dp,
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(18.dp),
+            )
+            .background(
+                color = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                shape = RoundedCornerShape(18.dp),
+            )
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .clickable(onClick = onClick),
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                text = label,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-            )
-        }
+        Text(
+            text = label,
+            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.SemiBold,
+        )
     }
 }
 
@@ -245,11 +299,6 @@ private fun UserProfileScreenPreview() {
             account = UserAccountUi(
                 displayName = "Simon Mikolasek",
                 email = "simon@example.com",
-                university = "VUT Brno",
-                homeCity = "Brno",
-                savedPlaces = 18,
-                reviewsCount = 7,
-                currentPlan = "Student",
             ),
             isDarkMode = false,
             onThemeToggle = {},

@@ -27,6 +27,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -58,6 +59,11 @@ import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
+import com.example.unit2026.database.AuthRepository
+import com.example.unit2026.database.SupabaseClientProvider
+import com.example.unit2026.presentation.AddStudySpotScreen
+import com.example.unit2026.presentation.LoginScreen
+import com.example.unit2026.presentation.SignUpScreen
 import com.example.unit2026.presentation.UserAccountUi
 import com.example.unit2026.presentation.UserProfileScreen
 
@@ -66,10 +72,19 @@ import com.example.unit2026.presentation.UserProfileScreen
 fun App() {
     val systemDarkMode = isSystemInDarkTheme()
     var isDarkMode by remember(systemDarkMode) { mutableStateOf(systemDarkMode) }
+    val authRepository = remember { AuthRepository(SupabaseClientProvider.client) }
+    var authVersion by remember { mutableStateOf(0) }
+    val refreshAuthState = remember {
+        { authVersion += 1 }
+    }
+    val isLoggedIn = remember(authVersion) {
+        authRepository.isLoggedIn()
+    }
 
     CompositionLocalProvider(
         LocalIsDarkMode provides isDarkMode,
         LocalSetDarkMode provides { value -> isDarkMode = value },
+        LocalRefreshAuth provides refreshAuthState,
     ) {
         MaterialTheme(
             colorScheme = if (isDarkMode) unitNightColors else unitDayColors,
@@ -78,7 +93,14 @@ fun App() {
                 modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.background,
             ) {
-                Navigator(AppRootScreen)
+                if (isLoggedIn) {
+                    Navigator(AppRootScreen)
+                } else {
+                    AuthGate(
+                        authRepository = authRepository,
+                        onAuthSuccess = refreshAuthState,
+                    )
+                }
             }
         }
     }
@@ -86,11 +108,41 @@ fun App() {
 
 private val LocalIsDarkMode = compositionLocalOf { false }
 private val LocalSetDarkMode = compositionLocalOf<(Boolean) -> Unit> { {} }
+private val LocalRefreshAuth = compositionLocalOf<() -> Unit> { {} }
 private val AppRootScreen: Screen = UnitShellScreen
+
+private enum class AuthMode {
+    Login,
+    SignUp,
+}
+
+@Composable
+private fun AuthGate(
+    authRepository: AuthRepository,
+    onAuthSuccess: () -> Unit,
+) {
+    var authMode by remember { mutableStateOf(AuthMode.Login) }
+
+    when (authMode) {
+        AuthMode.Login -> LoginScreen(
+            authRepository = authRepository,
+            onLoginSuccess = onAuthSuccess,
+            onGoToSignUp = { authMode = AuthMode.SignUp },
+        )
+
+        AuthMode.SignUp -> SignUpScreen(
+            authRepository = authRepository,
+            onSignUpSuccess = onAuthSuccess,
+            onGoToLogin = { authMode = AuthMode.Login },
+        )
+    }
+}
 
 private object UnitShellScreen : cafe.adriel.voyager.core.screen.Screen {
     @Composable
     override fun Content() {
+        var showAddSpot by remember { mutableStateOf(false) }
+
         TabNavigator(DiscoverTab) {
             Scaffold(
                 containerColor = MaterialTheme.colorScheme.background,
@@ -105,6 +157,17 @@ private object UnitShellScreen : cafe.adriel.voyager.core.screen.Screen {
                         .padding(innerPadding),
                 ) {
                     CurrentTab()
+                    AddSpotButton(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(start = 16.dp, top = 16.dp),
+                        onClick = { showAddSpot = true },
+                    )
+                    if (showAddSpot) {
+                        AddSpotOverlay(
+                            onDismiss = { showAddSpot = false },
+                        )
+                    }
                 }
             }
         }
@@ -285,20 +348,16 @@ private object ProfileTab : Tab {
     override fun Content() {
         val isDarkMode = LocalIsDarkMode.current
         val setDarkMode = LocalSetDarkMode.current
+        val refreshAuth = LocalRefreshAuth.current
 
         UserProfileScreen(
             account = UserAccountUi(
                 displayName = "Simon Mikolasek",
                 email = "simon@example.com",
-                university = "VUT Brno",
-                homeCity = "Brno",
-                savedPlaces = 18,
-                reviewsCount = 7,
-                currentPlan = "Student",
             ),
             isDarkMode = isDarkMode,
             onThemeToggle = setDarkMode,
-            onLogoutClick = {},
+            onLogoutClick = refreshAuth,
         )
     }
 }
@@ -389,6 +448,83 @@ private fun UnitBottomBar() {
                         } else {
                             Spacer(Modifier.height(3.dp))
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddSpotButton(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = modifier
+            .size(42.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            ),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+        tonalElevation = 10.dp,
+        shadowElevation = 18.dp,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = "+",
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.headlineSmall,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AddSpotOverlay(
+    onDismiss: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.28f)),
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp, vertical = 18.dp),
+            shape = RoundedCornerShape(32.dp),
+            color = MaterialTheme.colorScheme.background,
+            tonalElevation = 8.dp,
+            shadowElevation = 24.dp,
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                AddStudySpotScreen(
+                    modifier = Modifier.fillMaxSize(),
+                    onSubmit = { onDismiss() },
+                )
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp)
+                        .size(34.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onDismiss,
+                        ),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "x",
+                            color = MaterialTheme.colorScheme.onSurface,
+                            style = MaterialTheme.typography.titleMedium,
+                        )
                     }
                 }
             }

@@ -32,18 +32,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 
 data class VisitFeedbackDraft(
-    val noise: Float = 0.5f,
-    val comfort: Float = 0.5f,
-    val snacks: Float = 0.5f,
+    val noise: Int = 3,
+    val comfort: Int = 3,
+    val snacks: Int = 3,
     val hasPowerOutlet: Boolean = false,
 )
-
-private enum class VisitFeedbackStep {
-    Confirmation,
-    Rating,
-}
 
 @Composable
 fun VisitFeedbackPrompt(
@@ -52,7 +48,6 @@ fun VisitFeedbackPrompt(
     onDismiss: () -> Unit,
     onConfirmVisit: (VisitFeedbackDraft) -> Unit,
 ) {
-    var step by remember { mutableStateOf(VisitFeedbackStep.Confirmation) }
     var draft by remember { mutableStateOf(VisitFeedbackDraft()) }
 
     Box(
@@ -77,119 +72,87 @@ fun VisitFeedbackPrompt(
                 verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
                 Text(
-                    text = "Visit check",
+                    text = "Rate this spot",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.secondary,
                     fontWeight = FontWeight.SemiBold,
                 )
 
-                when (step) {
-                    VisitFeedbackStep.Confirmation -> {
+                Text(
+                    text = placeName,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+
+                Text(
+                    text = "Quick post-visit rating with simple 1 to 5 scoring.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                RatingSlider(
+                    label = "Noise",
+                    value = draft.noise,
+                    onValueChange = { draft = draft.copy(noise = it) },
+                    lowLabel = "1 Quiet",
+                    highLabel = "5 Loud",
+                )
+                RatingSlider(
+                    label = "Comfort",
+                    value = draft.comfort,
+                    onValueChange = { draft = draft.copy(comfort = it) },
+                    lowLabel = "1 Basic",
+                    highLabel = "5 Cozy",
+                )
+                RatingSlider(
+                    label = "Snacks",
+                    value = draft.snacks,
+                    onValueChange = { draft = draft.copy(snacks = it) },
+                    lowLabel = "1 None",
+                    highLabel = "5 Great",
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
                         Text(
-                            text = "Navštívil jsi opravdu místo $placeName?",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
+                            text = "Power outlet",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
                         )
                         Text(
-                            text = "Popup je navržený pro zobrazení přibližně 3 hodiny po startu navigace, aby byla vyšší šance na reálnou návštěvu.",
+                            text = if (draft.hasPowerOutlet) "Available" else "Not available",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            OutlinedButton(
-                                onClick = onDismiss,
-                                modifier = Modifier,
-                            ) {
-                                Text("Ne ještě")
-                            }
-                            Button(
-                                onClick = { step = VisitFeedbackStep.Rating },
-                                modifier = Modifier,
-                            ) {
-                                Text("Ano, byl")
-                            }
-                        }
                     }
+                    Spacer(Modifier.width(12.dp))
+                    Switch(
+                        checked = draft.hasPowerOutlet,
+                        onCheckedChange = {
+                            draft = draft.copy(hasPowerOutlet = it)
+                        },
+                    )
+                }
 
-                    VisitFeedbackStep.Rating -> {
-                        Text(
-                            text = "Rychlé hodnocení",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Text(
-                            text = "Krátké feedback summary po návštěvě místa.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-
-                        RatingSlider(
-                            label = "Noise",
-                            value = draft.noise,
-                            onValueChange = { draft = draft.copy(noise = it) },
-                            lowLabel = "Quiet",
-                            highLabel = "Loud",
-                        )
-                        RatingSlider(
-                            label = "Comfort",
-                            value = draft.comfort,
-                            onValueChange = { draft = draft.copy(comfort = it) },
-                            lowLabel = "Basic",
-                            highLabel = "Cozy",
-                        )
-                        RatingSlider(
-                            label = "Snacks",
-                            value = draft.snacks,
-                            onValueChange = { draft = draft.copy(snacks = it) },
-                            lowLabel = "None",
-                            highLabel = "Great",
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Column(
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                Text(
-                                    text = "Power outlet",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                                Text(
-                                    text = if (draft.hasPowerOutlet) "Available" else "Not available",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            Switch(
-                                checked = draft.hasPowerOutlet,
-                                onCheckedChange = {
-                                    draft = draft.copy(hasPowerOutlet = it)
-                                },
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            OutlinedButton(
-                                onClick = { step = VisitFeedbackStep.Confirmation },
-                                modifier = Modifier,
-                            ) {
-                                Text("Zpět")
-                            }
-                            Button(
-                                onClick = { onConfirmVisit(draft) },
-                                modifier = Modifier,
-                            ) {
-                                Text("Odeslat")
-                            }
-                        }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier,
+                    ) {
+                        Text("Cancel")
+                    }
+                    Button(
+                        onClick = { onConfirmVisit(draft) },
+                        modifier = Modifier,
+                    ) {
+                        Text("Submit")
                     }
                 }
             }
@@ -200,8 +163,8 @@ fun VisitFeedbackPrompt(
 @Composable
 private fun RatingSlider(
     label: String,
-    value: Float,
-    onValueChange: (Float) -> Unit,
+    value: Int,
+    onValueChange: (Int) -> Unit,
     lowLabel: String,
     highLabel: String,
 ) {
@@ -217,15 +180,17 @@ private fun RatingSlider(
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = "${(value * 100).toInt()}%",
+                text = value.toString(),
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
             )
         }
 
         Slider(
-            value = value,
-            onValueChange = onValueChange,
+            value = value.toFloat(),
+            onValueChange = { onValueChange(it.roundToInt().coerceIn(1, 5)) },
+            valueRange = 1f..5f,
+            steps = 3,
         )
 
         Row(
