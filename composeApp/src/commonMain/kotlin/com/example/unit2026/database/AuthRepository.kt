@@ -26,6 +26,10 @@ class AuthRepository(
         return supabase.auth.currentUserOrNull()?.email
     }
 
+    fun currentUserId(): String? {
+        return supabase.auth.currentUserOrNull()?.id
+    }
+
     fun currentFullName(): String {
         val user = supabase.auth.currentUserOrNull()
 

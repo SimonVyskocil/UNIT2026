@@ -37,9 +37,9 @@ data class SpotDto(
     @SerialName("power_outlet")
     val powerOutlet: Boolean = false,
 
-    val noise: Int,
-    val comfort: Int,
-    val refreshments: Int,
+    val noise: Double,
+    val comfort: Double,
+    val refreshments: Double,
 
     @SerialName("photos")
     @Serializable(with = ImageUrlsSerializer::class)

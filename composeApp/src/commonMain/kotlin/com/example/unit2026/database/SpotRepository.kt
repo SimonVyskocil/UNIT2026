@@ -36,4 +36,16 @@ class SpotRepository(
             emptyMap()
         }
     }
+
+    suspend fun getSpotsByIds(spotIds: Set<Long>): List<SpotDto> {
+        if (spotIds.isEmpty()) return emptyList()
+        return getSpots()
+            .filter { spot -> spot.id in spotIds }
+    }
+
+    suspend fun getSpotsExcludingIds(spotIds: Set<Long>): List<SpotDto> {
+        if (spotIds.isEmpty()) return getSpots()
+        return getSpots()
+            .filter { spot -> spot.id !in spotIds }
+    }
 }
