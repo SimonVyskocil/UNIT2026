@@ -385,49 +385,7 @@ private object MapTab : Tab {
 
     @Composable
     override fun Content() {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 20.dp, vertical = 18.dp),
-        ) {
-            SectionHeader(
-                eyebrow = "Live map",
-                title = "Spot energy across the city",
-                subtitle = "Dočasný map shell, než napojíme reálnou mapu.",
-            )
-            Spacer(Modifier.height(18.dp))
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(0.88f),
-                shape = RoundedCornerShape(30.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.linearGradient(
-                                listOf(Color(0xFF163832), Color(0xFF365B73), Color(0xFFF0BC7B)),
-                            ),
-                        )
-                        .padding(18.dp),
-                ) {
-                    MapLabel(
-                        label = "Atrium Lab",
-                        modifier = Modifier.align(Alignment.TopStart).padding(top = 36.dp, start = 28.dp),
-                    )
-                    MapLabel(
-                        label = "24/7 Quiet",
-                        modifier = Modifier.align(Alignment.CenterEnd).padding(end = 20.dp),
-                    )
-                    MapLabel(
-                        label = "Loft",
-                        modifier = Modifier.align(Alignment.BottomStart).padding(start = 62.dp, bottom = 44.dp),
-                    )
-                }
-            }
-        }
+        LocationsMapScreen()
     }
 }
 

@@ -4,5 +4,7 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Aplikace potřebuje polohu k zobrazení vzdálenosti k bodům a vaší pozice na mapě.</string>
 </dict>
 </plist>

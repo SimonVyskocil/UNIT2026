@@ -5,7 +5,7 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
-    kotlin("plugin.serialization") version "2.3.20"
+    alias(libs.plugins.kotlinSerialization)
 }
 
 kotlin {
@@ -29,12 +29,16 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.activity.compose)
-            implementation("io.coil-kt.coil3:coil-network-okhttp:3.0.4")
             implementation(libs.ktor.client.okhttp)
+            implementation(libs.maps.compose)
+            implementation(libs.play.services.maps)
+            implementation(libs.play.services.location)
+            implementation("io.coil-kt.coil3:coil-network-okhttp:3.0.4")
         }
 
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
+            implementation("io.coil-kt.coil3:coil-network-ktor3:3.0.4")
         }
 
         commonMain.dependencies {
@@ -51,6 +55,10 @@ kotlin {
             implementation(libs.voyager.tabNavigator)
             implementation(libs.kotlinx.serialization.json)
 
+            implementation(libs.kotlinx.serialization.json)
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.ktor.serialization.kotlinx.json)
             implementation("io.github.jan-tennert.supabase:postgrest-kt:3.4.1")
             implementation("io.github.jan-tennert.supabase:auth-kt:3.4.1")
             implementation("io.github.jan-tennert.supabase:storage-kt:3.4.1")
