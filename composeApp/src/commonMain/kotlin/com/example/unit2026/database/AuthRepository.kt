@@ -18,9 +18,17 @@ class AuthRepository(
     private val supabase: SupabaseClient
 ) {
 
+    fun isLoggedIn(): Boolean {
+        return supabase.auth.currentSessionOrNull() != null
+    }
+
+    fun currentUserEmail(): String? {
+        return supabase.auth.currentUserOrNull()?.email
+    }
+
     suspend fun login(email: String, password: String): String? {
-        if (email.isBlank()) return "Vyplň email"
-        if (password.isBlank()) return "Vyplň heslo"
+        if (email.isBlank()) return "Vypln email"
+        if (password.isBlank()) return "Vypln heslo"
 
         return try {
             supabase.auth.signInWith(Email) {
@@ -29,32 +37,41 @@ class AuthRepository(
             }
             null
         } catch (e: Exception) {
-            e.message ?: "Nastala chyba při přihlášení"
+            e.message ?: "Nastala chyba pri prihlaseni"
         }
     }
 
-    suspend fun register(data: RegisterFormData): String? {
-        if (data.firstName.isBlank()) return "Vyplň jméno"
-        if (data.lastName.isBlank()) return "Vyplň příjmení"
-        if (data.email.isBlank()) return "Vyplň email"
-        if (data.password.isBlank()) return "Vyplň heslo"
-        if (data.passwordAgain.isBlank()) return "Vyplň heslo znovu"
-        if (data.password != data.passwordAgain) return "Hesla se neshodují"
-        if (data.password.length < 6) return "Heslo musí mít aspoň 6 znaků"
+    suspend fun register(form: RegisterFormData): String? {
+        if (form.firstName.isBlank()) return "Vypln jmeno"
+        if (form.lastName.isBlank()) return "Vypln prijmeni"
+        if (form.email.isBlank()) return "Vypln email"
+        if (form.password.isBlank()) return "Vypln heslo"
+        if (form.passwordAgain.isBlank()) return "Vypln heslo znovu"
+        if (form.password != form.passwordAgain) return "Hesla se neshoduji"
+        if (form.password.length < 6) return "Heslo musi mit aspon 6 znaku"
 
         return try {
             supabase.auth.signUpWith(Email) {
-                email = data.email
-                password = data.password
+                email = form.email
+                password = form.password
 
                 data = buildJsonObject {
-                    put("first_name", data.firstName)
-                    put("last_name", data.lastName)
+                    put("first_name", form.firstName)
+                    put("last_name", form.lastName)
                 }
             }
             null
         } catch (e: Exception) {
-            e.message ?: "Nastala chyba při registraci"
+            e.message ?: "Nastala chyba pri registraci"
+        }
+    }
+
+    suspend fun logout(): String? {
+        return try {
+            supabase.auth.signOut()
+            null
+        } catch (e: Exception) {
+            e.message ?: "Nepodarilo se odhlasit"
         }
     }
 }
