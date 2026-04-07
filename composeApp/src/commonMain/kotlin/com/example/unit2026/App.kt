@@ -1,5 +1,9 @@
 package com.example.unit2026
 
+import coil3.ImageLoader
+import coil3.compose.setSingletonImageLoaderFactory
+import coil3.network.ktor3.KtorNetworkFetcherFactory // (nebo ktor2, podle verze Ktoru)
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -44,6 +48,13 @@ private enum class AppScreen {
 @Composable
 @Preview
 fun App() {
+    setSingletonImageLoaderFactory { context ->
+        ImageLoader.Builder(context)
+            .components {
+                add(KtorNetworkFetcherFactory())
+            }
+            .build()
+    }
     val authRepository = remember { AuthRepository(SupabaseClientProvider.client) }
     val spotRepository = remember { SpotRepository(SupabaseClientProvider.client) }
 

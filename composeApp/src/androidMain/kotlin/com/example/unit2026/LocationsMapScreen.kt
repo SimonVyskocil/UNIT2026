@@ -49,7 +49,7 @@ fun calculateDistance(userLat: Double, userLng: Double, poiLat: Double, poiLng: 
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("MissingPermission")
 @Composable
-fun LocationsMapScreen() {
+actual fun LocationsMapScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 

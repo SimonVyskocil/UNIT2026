@@ -55,9 +55,11 @@ kotlin {
             implementation("io.github.jan-tennert.supabase:auth-kt:3.4.1")
             implementation("io.github.jan-tennert.supabase:storage-kt:3.4.1")
             implementation("io.coil-kt.coil3:coil-compose:3.0.4")
+            implementation("io.coil-kt.coil3:coil-network-ktor3:3.0.4")
         }
 
         iosMain.dependencies {
+            implementation("io.ktor:ktor-client-darwin")
             implementation(libs.ktor.client.darwin)
         }
 

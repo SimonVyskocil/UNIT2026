@@ -33,8 +33,8 @@ class LocationService {
                     } else null
                 }
             } catch (e: Exception) {
-                // V KMP je lepší použít println místo e.printStackTrace()
-                println("Chyba při načítání dat: ${e.message}")
+                println("🚨 IOS SUPABASE CHYBA: ${e::class.simpleName} - ${e.message}")
+                e.printStackTrace()
                 emptyList()
             }
         }
