@@ -56,7 +56,7 @@ fun PlaceCard(
                     contentScale = ContentScale.Crop,
                     colorFilter = when (currentImageIndex % 3) {
                         0 -> null
-                        1 -> androidx.compose.ui.graphics.ColorFilter.tint(Color.Cyan, blendMode = androidx.compose.ui.graphics.BlendMode.Color)
+                        1 -> androidx.compose.ui.graphics.ColorFilter.tint(MaterialTheme.colorScheme.primary, blendMode = androidx.compose.ui.graphics.BlendMode.Color)
                         else -> androidx.compose.ui.graphics.ColorFilter.tint(Color.Magenta, blendMode = androidx.compose.ui.graphics.BlendMode.Color)
                     }
                 )
