@@ -12,8 +12,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
+import com.example.unit2026.database.AuthRepository
+import com.example.unit2026.database.SupabaseClientProvider
 import com.example.unit2026.presentation.GalleryScreen
+import com.example.unit2026.presentation.LoginScreen
 import com.example.unit2026.presentation.Place
+import com.example.unit2026.presentation.SignUpScreen
 import com.example.unit2026.presentation.SwiperScreen
 
 val LightColorPalette = lightColorScheme(
@@ -37,41 +41,62 @@ val DarkColorPalette = darkColorScheme(
 @Composable
 @Preview
 fun App() {
-    var currentScreen by remember { mutableStateOf("swiper") }
+    val authRepository = remember { AuthRepository(SupabaseClientProvider.client) }
+    var currentScreen by remember { mutableStateOf(if (authRepository.isLoggedIn()) "swiper" else "login") }
     val savedPlaces = remember { mutableStateListOf<Place>() }
 
     MaterialTheme(
         colorScheme = if (isSystemInDarkTheme()) DarkColorPalette else LightColorPalette
     ) {
-        Scaffold(
-            bottomBar = {
-                NavigationBar {
-                    NavigationBarItem(
-                        selected = currentScreen == "swiper",
-                        onClick = { currentScreen = "swiper" },
-                        icon = { Icon(Icons.Default.ThumbUp, contentDescription = "Swipe") },
-                        label = { Text("Swipe") }
-                    )
-                    NavigationBarItem(
-                        selected = currentScreen == "gallery",
-                        onClick = { currentScreen = "gallery" },
-                        icon = { Icon(Icons.Default.List, contentDescription = "Gallery") },
-                        label = { Text("Gallery") }
-                    )
-                }
-            }
-        ) { paddingValues ->
-            Box(modifier = Modifier.padding(paddingValues)) {
-                when (currentScreen) {
-                    "swiper" -> SwiperScreen(onPlaceSaved = { place ->
-                        if (!savedPlaces.contains(place)) {
-                            savedPlaces.add(place)
+        when (currentScreen) {
+            "login" -> LoginScreen(
+                authRepository = authRepository,
+                onLoginSuccess = { currentScreen = "swiper" },
+                onGoToSignUp = { currentScreen = "signup" }
+            )
+            "signup" -> SignUpScreen(
+                authRepository = authRepository,
+                onSignUpSuccess = {
+                    if (authRepository.isLoggedIn()) {
+                        currentScreen = "swiper"
+                    } else {
+                        currentScreen = "login"
+                    }
+                },
+                onGoToLogin = { currentScreen = "login" }
+            )
+            else -> {
+                Scaffold(
+                    bottomBar = {
+                        NavigationBar {
+                            NavigationBarItem(
+                                selected = currentScreen == "swiper",
+                                onClick = { currentScreen = "swiper" },
+                                icon = { Icon(Icons.Default.ThumbUp, contentDescription = "Swipe") },
+                                label = { Text("Swipe") }
+                            )
+                            NavigationBarItem(
+                                selected = currentScreen == "gallery",
+                                onClick = { currentScreen = "gallery" },
+                                icon = { Icon(Icons.Default.List, contentDescription = "Gallery") },
+                                label = { Text("Gallery") }
+                            )
                         }
-                    })
-                    "gallery" -> GalleryScreen(
-                        savedPlaces = savedPlaces,
-                        onDeletePlace = { savedPlaces.remove(it) }
-                    )
+                    }
+                ) { paddingValues ->
+                    Box(modifier = Modifier.padding(paddingValues)) {
+                        when (currentScreen) {
+                            "swiper" -> SwiperScreen(onPlaceSaved = { place ->
+                                if (!savedPlaces.contains(place)) {
+                                    savedPlaces.add(place)
+                                }
+                            })
+                            "gallery" -> GalleryScreen(
+                                savedPlaces = savedPlaces,
+                                onDeletePlace = { savedPlaces.remove(it) }
+                            )
+                        }
+                    }
                 }
             }
         }

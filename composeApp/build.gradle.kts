@@ -1,4 +1,3 @@
-import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -6,6 +5,7 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    kotlin("plugin.serialization") version "2.3.20"
 }
 
 kotlin {
@@ -14,22 +14,17 @@ kotlin {
             jvmTarget.set(JvmTarget.JVM_11)
         }
     }
-    
-    listOf(
-        iosArm64(),
-        iosSimulatorArm64()
-    ).forEach { iosTarget ->
-        iosTarget.binaries.framework {
-            baseName = "ComposeApp"
-            isStatic = true
-        }
-    }
-    
+
+    iosArm64()
+    iosSimulatorArm64()
+
     sourceSets {
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.activity.compose)
+            implementation("io.coil-kt.coil3:coil-network-okhttp:3.0.4")
         }
+
         commonMain.dependencies {
             implementation(compose.runtime)
             implementation(compose.foundation)
@@ -40,7 +35,16 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+            implementation(libs.kotlinx.serialization.json)
+
+            implementation("io.github.jan-tennert.supabase:postgrest-kt:3.4.1")
+            implementation("io.github.jan-tennert.supabase:auth-kt:3.4.1")
+            implementation("io.github.jan-tennert.supabase:storage-kt:3.4.1")
+            implementation("io.coil-kt.coil3:coil-compose:3.0.4")
+
+            implementation("io.ktor:ktor-client-okhttp:3.0.0")
         }
+
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
@@ -48,26 +52,29 @@ kotlin {
 }
 
 android {
-    namespace = "com.example.unit2026"
+    namespace = "com.example.geogoon"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.example.unit2026"
+        applicationId = "com.example.geogoon"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
     }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
     buildTypes {
         getByName("release") {
             isMinifyEnabled = false
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -77,4 +84,3 @@ android {
 dependencies {
     debugImplementation(libs.compose.uiTooling)
 }
-
