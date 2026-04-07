@@ -1,4 +1,5 @@
 package com.example.unit2026.database
+
 import com.example.unit2026.database.models.SpotDto
 import com.example.unit2026.presentation.Place
 import io.github.jan.supabase.SupabaseClient
@@ -11,30 +12,44 @@ class SpotRepository(
 
     suspend fun getSpots(): List<Place> {
         return try {
+            val ratingSummaries = SpotRatingRepository(supabase).getRatingSummaries()
             supabase
                 .from("spots")
                 .select()
                 .decodeList<SpotDto>()
-                .map { it.toPlace() }
+                .map { spot ->
+                    spot.toPlace(
+                        ratingSummary = spot.id?.let { ratingSummaries[it] },
+                    )
+                }
         } catch (e: Exception) {
             e.printStackTrace()
             emptyList()
         }
     }
 
-    private fun SpotDto.toPlace(): Place {
+    private fun SpotDto.toPlace(
+        ratingSummary: SpotRatingSummary?,
+    ): Place {
+        val resolvedNoise = ratingSummary?.noise ?: noise
+        val resolvedComfort = ratingSummary?.comfort ?: comfort
+        val resolvedRefreshments = ratingSummary?.refreshments ?: refreshments
+        val resolvedRating = ratingSummary?.let {
+            ((it.noise + it.comfort + it.refreshments) / 3.0).round2()
+        } ?: 4.5
+
         return Place(
             id = id?.toString() ?: "",
             name = name,
             description = description ?: "",
-            rating = 4.5, // Default rating as it's missing in DTO
-            noise = noise,
-            comfort = comfort,
-            refreshments = refreshments,
+            rating = resolvedRating,
+            noise = resolvedNoise,
+            comfort = resolvedComfort,
+            refreshments = resolvedRefreshments,
             openingHours = openingHours ?: "N/A",
             images = imageUrls,
             certified = certified,
-            powerOutlet = powerOutlet,
+            powerOutlet = ratingSummary?.powerOutlet ?: powerOutlet,
             coordinates = coordinates
         )
     }
@@ -55,4 +70,20 @@ class SpotRepository(
             emptyMap()
         }
     }
+
+    suspend fun getSpotsByIds(spotIds: Set<Long>): List<Place> {
+        if (spotIds.isEmpty()) return emptyList<Place>()
+        val spots: List<Place> = getSpots()
+        return spots
+            .filter { spot -> spot.id.toLongOrNull() in spotIds }
+    }
+
+    suspend fun getSpotsExcludingIds(spotIds: Set<Long>): List<Place> {
+        val spots: List<Place> = getSpots()
+        if (spotIds.isEmpty()) return spots
+        return spots
+            .filter { spot -> spot.id.toLongOrNull() !in spotIds }
+    }
 }
+
+private fun Double.round2(): Double = kotlin.math.round(this * 100) / 100

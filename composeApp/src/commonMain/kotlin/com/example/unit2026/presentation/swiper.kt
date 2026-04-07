@@ -14,18 +14,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.unit2026.components.PlaceCard
 import com.example.unit2026.components.SwipeableCard
-import com.example.unit2026.database.SpotRepository
 import kotlinx.coroutines.launch
 
 @Composable
 fun SwiperScreen(
-    spotRepository: SpotRepository,
     places: SnapshotStateList<Place>,
     isLoading: Boolean,
     hasLoadedInitialData: Boolean,
     onLoadingChange: (Boolean) -> Unit,
     onInitialLoadComplete: () -> Unit,
-    onPlaceSaved: (Place) -> Unit
+    onDismissPlace: (Place) -> Unit,
+    onPlaceSaved: (Place) -> Unit,
+    onRefreshPlaces: suspend () -> List<Place>,
 ) {
     val scope = rememberCoroutineScope()
 
@@ -33,7 +33,7 @@ fun SwiperScreen(
         if (!hasLoadedInitialData) {
             onLoadingChange(true)
             places.clear()
-            places.addAll(spotRepository.getSpots())
+            places.addAll(onRefreshPlaces())
             onLoadingChange(false)
             onInitialLoadComplete()
         }
@@ -100,6 +100,7 @@ fun SwiperScreen(
                     val isTopCard = index == places.size - 1
                     SwipeableCard(
                         onSwipeLeft = {
+                            onDismissPlace(place)
                             places.remove(place)
                             currentOffsetX = 0f
                         },
@@ -130,7 +131,7 @@ fun SwiperScreen(
                             scope.launch {
                                 onLoadingChange(true)
                                 places.clear()
-                                places.addAll(spotRepository.getSpots())
+                                places.addAll(onRefreshPlaces())
                                 onLoadingChange(false)
                                 onInitialLoadComplete()
                             }

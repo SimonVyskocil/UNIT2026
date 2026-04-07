@@ -5,10 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,7 +24,6 @@ import org.jetbrains.compose.resources.painterResource
 import unit2026.composeapp.generated.resources.Res
 import unit2026.composeapp.generated.resources.compose_multiplatform
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PlaceCard(
     place: Place,
@@ -110,37 +106,6 @@ fun PlaceCard(
                                 )
                             }
                         }
-                        if (place.powerOutlet) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Bolt,
-                                    contentDescription = "Power Outlets",
-                                    tint = Color.Yellow,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "Power Outlets Available",
-                                    color = Color.White.copy(alpha = 0.8f),
-                                    fontSize = 12.sp
-                                )
-                            }
-                        }
-                    }
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "⭐",
-                            fontSize = 18.sp,
-                            modifier = Modifier.padding(bottom = 2.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = place.rating.toString(),
-                            color = Color.White,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Medium
-                        )
                     }
 
                     Text(
@@ -153,15 +118,17 @@ fun PlaceCard(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Tags/Attributes
-                    FlowRow(
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        InfoTag(label = "Noise: ${getNoiseLabel(place.noise)}")
-                        InfoTag(label = "Comfort: ${getComfortLabel(place.comfort)}")
-                        InfoTag(label = "Refreshments: ${getRefreshmentsLabel(place.refreshments)}")
+                        MetricRow(label = "Noise", value = formatMetric(place.noise))
+                        MetricRow(label = "Comfort", value = formatMetric(place.comfort))
+                        MetricRow(label = "Snacks", value = formatMetric(place.refreshments))
+                        MetricRow(
+                            label = "Power outlet",
+                            value = if (place.powerOutlet) "Yes" else "No",
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -207,44 +174,28 @@ fun PlaceCard(
 }
 
 @Composable
-fun InfoTag(label: String) {
-    Surface(
-        color = Color.White.copy(alpha = 0.2f),
-        shape = RoundedCornerShape(8.dp),
+private fun MetricRow(
+    label: String,
+    value: String,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = label,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            color = Color.White.copy(alpha = 0.82f),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+        )
+        Text(
+            text = value,
             color = Color.White,
             fontSize = 12.sp,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
         )
     }
 }
 
-private fun getNoiseLabel(noise: Double): String = when {
-    noise <= 1.5 -> "Quiet"
-    noise <= 2.5 -> "Moderate"
-    noise <= 3.5 -> "Lively"
-    noise <= 4.5 -> "Busy"
-    noise <= 5.0 -> "Loud"
-    else -> "Unknown"
-}
-
-private fun getComfortLabel(comfort: Double): String = when {
-    comfort <= 1.5 -> "Basic"
-    comfort <= 2.5 -> "Fine"
-    comfort <= 3.5 -> "Good"
-    comfort <= 4.5 -> "Great"
-    comfort <= 5.0 -> "Excellent"
-    else -> "Unknown"
-}
-
-private fun getRefreshmentsLabel(refreshments: Double): String = when {
-    refreshments <= 1.5 -> "None"
-    refreshments <= 2.5 -> "Snacks"
-    refreshments <= 3.5 -> "Drinks"
-    refreshments <= 4.5 -> "Cafe"
-    refreshments <= 5.0 -> "Full Menu"
-    else -> "Unknown"
-}
+private fun formatMetric(value: Double): String = String.format("%.1f/5", value)

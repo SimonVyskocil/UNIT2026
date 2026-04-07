@@ -36,9 +36,11 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -63,6 +65,8 @@ import cafe.adriel.voyager.navigator.tab.TabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import com.example.unit2026.database.AuthRepository
 import com.example.unit2026.database.SpotRepository
+import com.example.unit2026.database.SpotSwipeAction
+import com.example.unit2026.database.SpotSwipeRepository
 import com.example.unit2026.database.SupabaseClientProvider
 import com.example.unit2026.presentation.AddStudySpotScreen
 import com.example.unit2026.presentation.GalleryScreen
@@ -72,6 +76,7 @@ import com.example.unit2026.presentation.SignUpScreen
 import com.example.unit2026.presentation.SwiperScreen
 import com.example.unit2026.presentation.UserAccountUi
 import com.example.unit2026.presentation.UserProfileScreen
+import kotlinx.coroutines.launch
 
 @Composable
 @Preview
@@ -118,6 +123,10 @@ private val LocalRefreshAuth = compositionLocalOf<() -> Unit> { {} }
 private val LocalSpotRepository = compositionLocalOf<SpotRepository> {
     error("SpotRepository not provided")
 }
+private val LocalSpotSwipeRepository = compositionLocalOf<SpotSwipeRepository> {
+    error("SpotSwipeRepository not provided")
+}
+private val LocalCurrentUserId = compositionLocalOf<String?> { null }
 private val LocalSavedPlaces = compositionLocalOf<SnapshotStateList<Place>> {
     mutableStateListOf()
 }
@@ -130,6 +139,8 @@ private val LocalIsDiscoverLoading = compositionLocalOf<MutableState<Boolean>> {
 private val LocalHasLoadedDiscover = compositionLocalOf<MutableState<Boolean>> {
     mutableStateOf(false)
 }
+private val LocalRefreshDiscover = compositionLocalOf<suspend () -> List<Place>> { { emptyList() } }
+private val LocalOnDismissPlace = compositionLocalOf<(Place) -> Unit> { {} }
 private val LocalOnSavePlace = compositionLocalOf<(Place) -> Unit> { {} }
 private val LocalOnDeleteSavedPlace = compositionLocalOf<(Place) -> Unit> { {} }
 private val AppRootScreen: Screen = UnitShellScreen
@@ -165,25 +176,87 @@ private object UnitShellScreen : Screen {
     @Composable
     override fun Content() {
         var showAddSpot by remember { mutableStateOf(false) }
+        val authRepository = remember { AuthRepository(SupabaseClientProvider.client) }
         val spotRepository = remember { SpotRepository(SupabaseClientProvider.client) }
+        val spotSwipeRepository = remember { SpotSwipeRepository(SupabaseClientProvider.client) }
+        val currentUserId = remember { authRepository.currentUserId() }
+        val scope = rememberCoroutineScope()
         val savedPlaces = remember { mutableStateListOf<Place>() }
         val discoverPlaces = remember { mutableStateListOf<Place>() }
         val isDiscoverLoading = remember { mutableStateOf(false) }
         val hasLoadedDiscover = remember { mutableStateOf(false) }
+        val refreshDiscover: suspend () -> List<Place> = {
+            if (currentUserId == null) {
+                emptyList()
+            } else {
+                val swipedIds = spotSwipeRepository.getSwipedSpotIds(currentUserId)
+                spotRepository.getSpotsExcludingIds(swipedIds)
+            }
+        }
+
+        LaunchedEffect(currentUserId) {
+            if (currentUserId == null) {
+                savedPlaces.clear()
+                discoverPlaces.clear()
+                isDiscoverLoading.value = false
+                hasLoadedDiscover.value = true
+            } else {
+                isDiscoverLoading.value = true
+                val likedIds = spotSwipeRepository.getLikedSpotIds(currentUserId)
+                savedPlaces.clear()
+                savedPlaces.addAll(spotRepository.getSpotsByIds(likedIds))
+                discoverPlaces.clear()
+                discoverPlaces.addAll(refreshDiscover())
+                isDiscoverLoading.value = false
+                hasLoadedDiscover.value = true
+            }
+        }
 
         CompositionLocalProvider(
+            LocalCurrentUserId provides currentUserId,
             LocalSpotRepository provides spotRepository,
+            LocalSpotSwipeRepository provides spotSwipeRepository,
             LocalSavedPlaces provides savedPlaces,
             LocalDiscoverPlaces provides discoverPlaces,
             LocalIsDiscoverLoading provides isDiscoverLoading,
             LocalHasLoadedDiscover provides hasLoadedDiscover,
+            LocalRefreshDiscover provides refreshDiscover,
+            LocalOnDismissPlace provides { place ->
+                val userId = currentUserId ?: return@provides
+                val spotId = place.id.toLongOrNull() ?: return@provides
+                scope.launch {
+                    spotSwipeRepository.upsertSwipe(
+                        spotId = spotId,
+                        userId = userId,
+                        action = SpotSwipeAction.Disliked,
+                    )
+                }
+            },
             LocalOnSavePlace provides { place ->
                 if (savedPlaces.none { it.id == place.id }) {
                     savedPlaces.add(place)
                 }
+                val userId = currentUserId ?: return@provides
+                val spotId = place.id.toLongOrNull() ?: return@provides
+                scope.launch {
+                    spotSwipeRepository.upsertSwipe(
+                        spotId = spotId,
+                        userId = userId,
+                        action = SpotSwipeAction.Liked,
+                    )
+                }
             },
             LocalOnDeleteSavedPlace provides { place ->
                 savedPlaces.removeAll { it.id == place.id }
+                val userId = currentUserId ?: return@provides
+                val spotId = place.id.toLongOrNull() ?: return@provides
+                scope.launch {
+                    spotSwipeRepository.upsertSwipe(
+                        spotId = spotId,
+                        userId = userId,
+                        action = SpotSwipeAction.Disliked,
+                    )
+                }
             },
         ) {
             TabNavigator(DiscoverTab) {
@@ -231,11 +304,12 @@ private object DiscoverTab : Tab {
 
     @Composable
     override fun Content() {
-        val spotRepository = LocalSpotRepository.current
         val savePlace = LocalOnSavePlace.current
+        val dismissPlace = LocalOnDismissPlace.current
         val discoverPlaces = LocalDiscoverPlaces.current
         val isDiscoverLoading = LocalIsDiscoverLoading.current
         val hasLoadedDiscover = LocalHasLoadedDiscover.current
+        val refreshDiscover = LocalRefreshDiscover.current
 
         Box(
             modifier = Modifier
@@ -260,13 +334,14 @@ private object DiscoverTab : Tab {
                     .padding(top = 104.dp),
             ) {
                 SwiperScreen(
-                    spotRepository = spotRepository,
                     places = discoverPlaces,
                     isLoading = isDiscoverLoading.value,
                     hasLoadedInitialData = hasLoadedDiscover.value,
                     onLoadingChange = { isDiscoverLoading.value = it },
                     onInitialLoadComplete = { hasLoadedDiscover.value = true },
+                    onDismissPlace = dismissPlace,
                     onPlaceSaved = savePlace,
+                    onRefreshPlaces = refreshDiscover,
                 )
             }
         }
