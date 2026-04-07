@@ -51,6 +51,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.CurrentTab
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
@@ -77,7 +78,7 @@ fun App() {
                 modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.background,
             ) {
-                Navigator(UnitShellScreen)
+                Navigator(AppRootScreen)
             }
         }
     }
@@ -85,6 +86,7 @@ fun App() {
 
 private val LocalIsDarkMode = compositionLocalOf { false }
 private val LocalSetDarkMode = compositionLocalOf<(Boolean) -> Unit> { {} }
+private val AppRootScreen: Screen = UnitShellScreen
 
 private object UnitShellScreen : cafe.adriel.voyager.core.screen.Screen {
     @Composable
@@ -459,37 +461,57 @@ private fun MapIcon(
                 val stroke = 1.8.dp.toPx()
                 val w = size.width
                 val h = size.height
+                val foldTop = h * 0.18f
+                val foldBottom = h * 0.82f
 
                 drawLine(
                     color = tint,
-                    start = androidx.compose.ui.geometry.Offset(w * 0.24f, h * 0.18f),
-                    end = androidx.compose.ui.geometry.Offset(w * 0.24f, h * 0.82f),
+                    start = androidx.compose.ui.geometry.Offset(w * 0.24f, foldTop),
+                    end = androidx.compose.ui.geometry.Offset(w * 0.24f, foldBottom),
                     strokeWidth = stroke,
                     cap = StrokeCap.Round,
                 )
                 drawLine(
                     color = tint,
-                    start = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.1f),
-                    end = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.9f),
+                    start = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.12f),
+                    end = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.88f),
                     strokeWidth = stroke,
                     cap = StrokeCap.Round,
                 )
                 drawLine(
                     color = tint,
-                    start = androidx.compose.ui.geometry.Offset(w * 0.76f, h * 0.18f),
-                    end = androidx.compose.ui.geometry.Offset(w * 0.76f, h * 0.82f),
+                    start = androidx.compose.ui.geometry.Offset(w * 0.76f, foldTop),
+                    end = androidx.compose.ui.geometry.Offset(w * 0.76f, foldBottom),
                     strokeWidth = stroke,
                     cap = StrokeCap.Round,
                 )
-                drawCircle(
-                    color = tint.copy(alpha = if (selected) 0.24f else 0.12f),
-                    radius = 4.dp.toPx(),
-                    center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.55f),
+                drawLine(
+                    color = tint.copy(alpha = if (selected) 1f else 0.78f),
+                    start = androidx.compose.ui.geometry.Offset(w * 0.24f, foldTop),
+                    end = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.12f),
+                    strokeWidth = stroke,
+                    cap = StrokeCap.Round,
                 )
-                drawCircle(
-                    color = tint,
-                    radius = 1.4.dp.toPx(),
-                    center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.55f),
+                drawLine(
+                    color = tint.copy(alpha = if (selected) 1f else 0.78f),
+                    start = androidx.compose.ui.geometry.Offset(w * 0.24f, foldBottom),
+                    end = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.88f),
+                    strokeWidth = stroke,
+                    cap = StrokeCap.Round,
+                )
+                drawLine(
+                    color = tint.copy(alpha = if (selected) 1f else 0.78f),
+                    start = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.12f),
+                    end = androidx.compose.ui.geometry.Offset(w * 0.76f, foldTop),
+                    strokeWidth = stroke,
+                    cap = StrokeCap.Round,
+                )
+                drawLine(
+                    color = tint.copy(alpha = if (selected) 1f else 0.78f),
+                    start = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.88f),
+                    end = androidx.compose.ui.geometry.Offset(w * 0.76f, foldBottom),
+                    strokeWidth = stroke,
+                    cap = StrokeCap.Round,
                 )
             },
     )
@@ -551,26 +573,29 @@ private fun ProfileIcon(
             .size(20.dp)
             .drawBehind {
                 val stroke = 1.8.dp.toPx()
+                val headCenterY = size.height * 0.31f
+                val bodyTop = size.height * 0.52f
+
                 drawCircle(
                     color = tint,
-                    radius = 4.dp.toPx(),
-                    center = androidx.compose.ui.geometry.Offset(size.width / 2f, size.height * 0.33f),
+                    radius = 3.4.dp.toPx(),
+                    center = androidx.compose.ui.geometry.Offset(size.width / 2f, headCenterY),
                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke),
                 )
                 drawArc(
                     color = tint,
-                    startAngle = 205f,
-                    sweepAngle = 130f,
+                    startAngle = 198f,
+                    sweepAngle = 144f,
                     useCenter = false,
-                    topLeft = androidx.compose.ui.geometry.Offset(size.width * 0.2f, size.height * 0.48f),
-                    size = androidx.compose.ui.geometry.Size(size.width * 0.6f, size.height * 0.34f),
+                    topLeft = androidx.compose.ui.geometry.Offset(size.width * 0.18f, bodyTop),
+                    size = androidx.compose.ui.geometry.Size(size.width * 0.64f, size.height * 0.28f),
                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke, cap = StrokeCap.Round),
                 )
                 if (selected) {
                     drawCircle(
                         color = tint.copy(alpha = 0.12f),
-                        radius = 4.5.dp.toPx(),
-                        center = androidx.compose.ui.geometry.Offset(size.width / 2f, size.height * 0.33f),
+                        radius = 4.2.dp.toPx(),
+                        center = androidx.compose.ui.geometry.Offset(size.width / 2f, headCenterY),
                     )
                 }
             },
