@@ -20,14 +20,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -38,11 +36,15 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,10 +62,14 @@ import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import com.example.unit2026.database.AuthRepository
+import com.example.unit2026.database.SpotRepository
 import com.example.unit2026.database.SupabaseClientProvider
 import com.example.unit2026.presentation.AddStudySpotScreen
+import com.example.unit2026.presentation.GalleryScreen
 import com.example.unit2026.presentation.LoginScreen
+import com.example.unit2026.presentation.Place
 import com.example.unit2026.presentation.SignUpScreen
+import com.example.unit2026.presentation.SwiperScreen
 import com.example.unit2026.presentation.UserAccountUi
 import com.example.unit2026.presentation.UserProfileScreen
 
@@ -73,7 +79,7 @@ fun App() {
     val systemDarkMode = isSystemInDarkTheme()
     var isDarkMode by remember(systemDarkMode) { mutableStateOf(systemDarkMode) }
     val authRepository = remember { AuthRepository(SupabaseClientProvider.client) }
-    var authVersion by remember { mutableStateOf(0) }
+    var authVersion by remember { mutableIntStateOf(0) }
     val refreshAuthState = remember {
         { authVersion += 1 }
     }
@@ -109,6 +115,23 @@ fun App() {
 private val LocalIsDarkMode = compositionLocalOf { false }
 private val LocalSetDarkMode = compositionLocalOf<(Boolean) -> Unit> { {} }
 private val LocalRefreshAuth = compositionLocalOf<() -> Unit> { {} }
+private val LocalSpotRepository = compositionLocalOf<SpotRepository> {
+    error("SpotRepository not provided")
+}
+private val LocalSavedPlaces = compositionLocalOf<SnapshotStateList<Place>> {
+    mutableStateListOf()
+}
+private val LocalDiscoverPlaces = compositionLocalOf<SnapshotStateList<Place>> {
+    mutableStateListOf()
+}
+private val LocalIsDiscoverLoading = compositionLocalOf<MutableState<Boolean>> {
+    mutableStateOf(false)
+}
+private val LocalHasLoadedDiscover = compositionLocalOf<MutableState<Boolean>> {
+    mutableStateOf(false)
+}
+private val LocalOnSavePlace = compositionLocalOf<(Place) -> Unit> { {} }
+private val LocalOnDeleteSavedPlace = compositionLocalOf<(Place) -> Unit> { {} }
 private val AppRootScreen: Screen = UnitShellScreen
 
 private enum class AuthMode {
@@ -138,35 +161,57 @@ private fun AuthGate(
     }
 }
 
-private object UnitShellScreen : cafe.adriel.voyager.core.screen.Screen {
+private object UnitShellScreen : Screen {
     @Composable
     override fun Content() {
         var showAddSpot by remember { mutableStateOf(false) }
+        val spotRepository = remember { SpotRepository(SupabaseClientProvider.client) }
+        val savedPlaces = remember { mutableStateListOf<Place>() }
+        val discoverPlaces = remember { mutableStateListOf<Place>() }
+        val isDiscoverLoading = remember { mutableStateOf(false) }
+        val hasLoadedDiscover = remember { mutableStateOf(false) }
 
-        TabNavigator(DiscoverTab) {
-            Scaffold(
-                containerColor = MaterialTheme.colorScheme.background,
-                contentWindowInsets = WindowInsets(0, 0, 0, 0),
-                bottomBar = {
-                    UnitBottomBar()
-                },
-            ) { innerPadding ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                ) {
-                    CurrentTab()
-                    AddSpotButton(
+        CompositionLocalProvider(
+            LocalSpotRepository provides spotRepository,
+            LocalSavedPlaces provides savedPlaces,
+            LocalDiscoverPlaces provides discoverPlaces,
+            LocalIsDiscoverLoading provides isDiscoverLoading,
+            LocalHasLoadedDiscover provides hasLoadedDiscover,
+            LocalOnSavePlace provides { place ->
+                if (savedPlaces.none { it.id == place.id }) {
+                    savedPlaces.add(place)
+                }
+            },
+            LocalOnDeleteSavedPlace provides { place ->
+                savedPlaces.removeAll { it.id == place.id }
+            },
+        ) {
+            TabNavigator(DiscoverTab) {
+                Scaffold(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                    bottomBar = {
+                        UnitBottomBar()
+                    },
+                ) { innerPadding ->
+                    Box(
                         modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(start = 16.dp, top = 16.dp),
-                        onClick = { showAddSpot = true },
-                    )
-                    if (showAddSpot) {
-                        AddSpotOverlay(
-                            onDismiss = { showAddSpot = false },
+                            .fillMaxSize()
+                            .statusBarsPadding()
+                            .padding(innerPadding),
+                    ) {
+                        CurrentTab()
+                        AddSpotButton(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(end = 16.dp, top = 12.dp),
+                            onClick = { showAddSpot = true },
                         )
+                        if (showAddSpot) {
+                            AddSpotOverlay(
+                                onDismiss = { showAddSpot = false },
+                            )
+                        }
                     }
                 }
             }
@@ -186,35 +231,42 @@ private object DiscoverTab : Tab {
 
     @Composable
     override fun Content() {
-        Column(
+        val spotRepository = LocalSpotRepository.current
+        val savePlace = LocalOnSavePlace.current
+        val discoverPlaces = LocalDiscoverPlaces.current
+        val isDiscoverLoading = LocalIsDiscoverLoading.current
+        val hasLoadedDiscover = LocalHasLoadedDiscover.current
+
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 18.dp),
         ) {
-            SectionHeader(
-                eyebrow = "Swipe picks",
-                title = "Find your next study sanctuary",
-                subtitle = "Rychlý placeholder pro hlavní feed, na který pak naváže swipe logika.",
-            )
-            Spacer(Modifier.height(20.dp))
-            HeroCard(
-                title = "Kolej Hub",
-                subtitle = "Focused corners, huge tables, espresso till 22:00",
-                badge = "4.8",
-                colors = listOf(Color(0xFF275B52), Color(0xFF8DC8AB)),
-            )
-            Spacer(Modifier.height(16.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                InfoCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    label = "Match",
-                    value = "92%",
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopStart),
+            ) {
+                SectionHeader(
+                    eyebrow = "Swipe picks",
+                    title = "Find your next study sanctuary",
+                    subtitle = "Swipe doprava pro uložení, doleva pro skip. Tady už běží reálný tinder feed.",
                 )
-                InfoCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    label = "Distance",
-                    value = "7 min",
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = 104.dp),
+            ) {
+                SwiperScreen(
+                    spotRepository = spotRepository,
+                    places = discoverPlaces,
+                    isLoading = isDiscoverLoading.value,
+                    hasLoadedInitialData = hasLoadedDiscover.value,
+                    onLoadingChange = { isDiscoverLoading.value = it },
+                    onInitialLoadComplete = { hasLoadedDiscover.value = true },
+                    onPlaceSaved = savePlace,
                 )
             }
         }
@@ -291,44 +343,35 @@ private object SavedTab : Tab {
 
     @Composable
     override fun Content() {
-        val savedSpots = listOf(
-            SavedSpot("Moon Base Cafe", "Soft lamps, stable wifi, best after 19:00", "4.9"),
-            SavedSpot("Brick Library", "Serious focus zone with zero distractions", "4.7"),
-            SavedSpot("North Atrium", "Casual team sessions and roomy desks", "4.6"),
-        )
+        val savedPlaces = LocalSavedPlaces.current
+        val deletePlace = LocalOnDeleteSavedPlace.current
 
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 20.dp, vertical = 18.dp),
         ) {
-            SectionHeader(
-                eyebrow = "Collections",
-                title = "Saved for finals week",
-                subtitle = "Tady můžou později být oblíbené spoty a watchlist.",
-            )
-            Spacer(Modifier.height(16.dp))
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(savedSpots) { spot ->
-                    Card(
-                        shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Text(spot.name, style = MaterialTheme.typography.titleMedium)
-                            Text(spot.note, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(
-                                text = "Rating ${spot.rating}",
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
-                }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopStart),
+            ) {
+                SectionHeader(
+                    eyebrow = "Collections",
+                    title = "Saved for finals week",
+                    subtitle = "Sem se ukládají spoty, které si uživatel swipe-ne doprava.",
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = 104.dp),
+            ) {
+                GalleryScreen(
+                    savedPlaces = savedPlaces,
+                    onDeletePlace = deletePlace,
+                )
             }
         }
     }
@@ -352,8 +395,8 @@ private object ProfileTab : Tab {
 
         UserProfileScreen(
             account = UserAccountUi(
-                displayName = "Simon Mikolasek",
-                email = "simon@example.com",
+                displayName = "Guest User",
+                email = "Not signed in",
             ),
             isDarkMode = isDarkMode,
             onThemeToggle = setDarkMode,
@@ -762,74 +805,6 @@ private fun SectionHeader(
 }
 
 @Composable
-private fun HeroCard(
-    title: String,
-    subtitle: String,
-    badge: String,
-    colors: List<Color>,
-) {
-    Card(
-        shape = RoundedCornerShape(32.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Brush.linearGradient(colors))
-                .padding(22.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = Color.White,
-                )
-                Surface(
-                    shape = CircleShape,
-                    color = Color.White.copy(alpha = 0.18f),
-                ) {
-                    Text(
-                        text = badge,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        color = Color.White,
-                    )
-                }
-            }
-            Text(
-                text = subtitle,
-                color = Color.White.copy(alpha = 0.92f),
-            )
-        }
-    }
-}
-
-@Composable
-private fun InfoCard(
-    modifier: Modifier = Modifier,
-    label: String,
-    value: String,
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.titleLarge)
-        }
-    }
-}
-
-@Composable
 private fun MapLabel(
     label: String,
     modifier: Modifier = Modifier,
@@ -846,12 +821,6 @@ private fun MapLabel(
         )
     }
 }
-
-private data class SavedSpot(
-    val name: String,
-    val note: String,
-    val rating: String,
-)
 
 private val unitDayColors = lightColorScheme(
     primary = Color(0xFF6F4BF2),
