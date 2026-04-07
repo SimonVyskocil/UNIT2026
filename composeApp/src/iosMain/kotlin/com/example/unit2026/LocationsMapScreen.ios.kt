@@ -1,8 +1,5 @@
 package com.example.unit2026
 
-import coil3.ImageLoader
-import coil3.compose.setSingletonImageLoaderFactory
-import coil3.network.ktor3.KtorNetworkFetcherFactory // (Nebo ktor2 podle toho, co jsi zjistil)
 import platform.UIKit.UIUserInterfaceStyle
 import platform.MapKit.MKMapViewDelegateProtocol
 import platform.MapKit.*
@@ -57,13 +54,6 @@ fun calculateDistanceIos(userLat: Double, userLng: Double, poiLat: Double, poiLn
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalForeignApi::class)
 @Composable
 actual fun LocationsMapScreen() {
-    setSingletonImageLoaderFactory { context ->
-        ImageLoader.Builder(context)
-            .components {
-                add(KtorNetworkFetcherFactory())
-            }
-            .build()
-    }
     val scope = rememberCoroutineScope()
     val locationService = remember { LocationService() }
 
