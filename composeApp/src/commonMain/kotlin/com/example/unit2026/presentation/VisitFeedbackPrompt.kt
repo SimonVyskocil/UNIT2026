@@ -16,7 +16,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -35,20 +40,30 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
 data class VisitFeedbackDraft(
+    val selectedPlaceId: String? = null,
     val noise: Int = 3,
     val comfort: Int = 3,
     val snacks: Int = 3,
     val hasPowerOutlet: Boolean = false,
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VisitFeedbackPrompt(
-    placeName: String,
+    places: List<Place>,
     modifier: Modifier = Modifier,
     onDismiss: () -> Unit,
     onConfirmVisit: (VisitFeedbackDraft) -> Unit,
 ) {
-    var draft by remember { mutableStateOf(VisitFeedbackDraft()) }
+    var draft by remember(places) {
+        mutableStateOf(
+            VisitFeedbackDraft(
+                selectedPlaceId = places.firstOrNull()?.id,
+            ),
+        )
+    }
+    var isPlaceMenuExpanded by remember { mutableStateOf(false) }
+    val selectedPlaceName = places.firstOrNull { it.id == draft.selectedPlaceId }?.name.orEmpty()
 
     Box(
         modifier = modifier
@@ -79,15 +94,42 @@ fun VisitFeedbackPrompt(
                 )
 
                 Text(
-                    text = placeName,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                )
-
-                Text(
                     text = "Quick post-visit rating with simple 1 to 5 scoring.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+
+                ExposedDropdownMenuBox(
+                    expanded = isPlaceMenuExpanded,
+                    onExpandedChange = { isPlaceMenuExpanded = !isPlaceMenuExpanded },
+                ) {
+                    OutlinedTextField(
+                        value = selectedPlaceName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Cafe") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = isPlaceMenuExpanded)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = isPlaceMenuExpanded,
+                        onDismissRequest = { isPlaceMenuExpanded = false },
+                    ) {
+                        places.forEach { place ->
+                            DropdownMenuItem(
+                                text = { Text(place.name) },
+                                onClick = {
+                                    draft = draft.copy(selectedPlaceId = place.id)
+                                    isPlaceMenuExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
 
                 RatingSlider(
                     label = "Noise",
@@ -151,6 +193,7 @@ fun VisitFeedbackPrompt(
                     Button(
                         onClick = { onConfirmVisit(draft) },
                         modifier = Modifier,
+                        enabled = draft.selectedPlaceId != null,
                     ) {
                         Text("Submit")
                     }
@@ -208,7 +251,21 @@ private fun RatingSlider(
 private fun VisitFeedbackPromptPreview() {
     MaterialTheme {
         VisitFeedbackPrompt(
-            placeName = "Kolej Hub",
+            places = listOf(
+                Place(
+                    id = "1",
+                    name = "Kolej Hub",
+                    description = "",
+                    rating = 4.4,
+                    noise = 3.0,
+                    comfort = 4.0,
+                    refreshments = 3.0,
+                    openingHours = "24/7",
+                    images = emptyList(),
+                    certified = true,
+                    powerOutlet = true,
+                ),
+            ),
             onDismiss = {},
             onConfirmVisit = {},
         )

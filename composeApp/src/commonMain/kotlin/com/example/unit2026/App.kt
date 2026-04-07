@@ -65,10 +65,10 @@ import cafe.adriel.voyager.navigator.tab.TabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import com.example.unit2026.database.AuthRepository
 import com.example.unit2026.database.SpotRepository
+import com.example.unit2026.database.SpotRatingRepository
 import com.example.unit2026.database.SpotSwipeAction
 import com.example.unit2026.database.SpotSwipeRepository
 import com.example.unit2026.database.SupabaseClientProvider
-import com.example.unit2026.presentation.AddStudySpotScreen
 import com.example.unit2026.presentation.GalleryScreen
 import com.example.unit2026.presentation.LoginScreen
 import com.example.unit2026.presentation.Place
@@ -76,6 +76,8 @@ import com.example.unit2026.presentation.SignUpScreen
 import com.example.unit2026.presentation.SwiperScreen
 import com.example.unit2026.presentation.UserAccountUi
 import com.example.unit2026.presentation.UserProfileScreen
+import com.example.unit2026.presentation.VisitFeedbackDraft
+import com.example.unit2026.presentation.VisitFeedbackPrompt
 import kotlinx.coroutines.launch
 
 @Composable
@@ -175,9 +177,10 @@ private fun AuthGate(
 private object UnitShellScreen : Screen {
     @Composable
     override fun Content() {
-        var showAddSpot by remember { mutableStateOf(false) }
+        var showVisitFeedback by remember { mutableStateOf(false) }
         val authRepository = remember { AuthRepository(SupabaseClientProvider.client) }
         val spotRepository = remember { SpotRepository(SupabaseClientProvider.client) }
+        val spotRatingRepository = remember { SpotRatingRepository(SupabaseClientProvider.client) }
         val spotSwipeRepository = remember { SpotSwipeRepository(SupabaseClientProvider.client) }
         val currentUserId = remember { authRepository.currentUserId() }
         val scope = rememberCoroutineScope()
@@ -185,6 +188,7 @@ private object UnitShellScreen : Screen {
         val discoverPlaces = remember { mutableStateListOf<Place>() }
         val isDiscoverLoading = remember { mutableStateOf(false) }
         val hasLoadedDiscover = remember { mutableStateOf(false) }
+        val allPlaces = remember { mutableStateListOf<Place>() }
         val refreshDiscover: suspend () -> List<Place> = {
             if (currentUserId == null) {
                 emptyList()
@@ -202,6 +206,8 @@ private object UnitShellScreen : Screen {
                 hasLoadedDiscover.value = true
             } else {
                 isDiscoverLoading.value = true
+                allPlaces.clear()
+                allPlaces.addAll(spotRepository.getSpots())
                 val likedIds = spotSwipeRepository.getLikedSpotIds(currentUserId)
                 savedPlaces.clear()
                 savedPlaces.addAll(spotRepository.getSpotsByIds(likedIds))
@@ -278,11 +284,30 @@ private object UnitShellScreen : Screen {
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
                                 .padding(end = 16.dp, top = 12.dp),
-                            onClick = { showAddSpot = true },
+                            onClick = { showVisitFeedback = true },
                         )
-                        if (showAddSpot) {
-                            AddSpotOverlay(
-                                onDismiss = { showAddSpot = false },
+                        if (showVisitFeedback) {
+                            VisitFeedbackOverlay(
+                                places = allPlaces,
+                                currentUserId = currentUserId,
+                                spotRepository = spotRepository,
+                                spotRatingRepository = spotRatingRepository,
+                                spotSwipeRepository = spotSwipeRepository,
+                                onDismiss = { showVisitFeedback = false },
+                                onSubmitted = {
+                                    if (currentUserId != null) {
+                                        isDiscoverLoading.value = true
+                                        allPlaces.clear()
+                                        allPlaces.addAll(spotRepository.getSpots())
+                                        val likedIds = spotSwipeRepository.getLikedSpotIds(currentUserId)
+                                        savedPlaces.clear()
+                                        savedPlaces.addAll(spotRepository.getSpotsByIds(likedIds))
+                                        discoverPlaces.clear()
+                                        discoverPlaces.addAll(refreshDiscover())
+                                        isDiscoverLoading.value = false
+                                    }
+                                    showVisitFeedback = false
+                                },
                             )
                         }
                     }
@@ -602,9 +627,17 @@ private fun AddSpotButton(
 }
 
 @Composable
-private fun AddSpotOverlay(
+private fun VisitFeedbackOverlay(
+    places: List<Place>,
+    currentUserId: String?,
+    spotRepository: SpotRepository,
+    spotRatingRepository: SpotRatingRepository,
+    spotSwipeRepository: SpotSwipeRepository,
     onDismiss: () -> Unit,
+    onSubmitted: suspend () -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -620,9 +653,25 @@ private fun AddSpotOverlay(
             shadowElevation = 24.dp,
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                AddStudySpotScreen(
+                VisitFeedbackPrompt(
+                    places = places,
                     modifier = Modifier.fillMaxSize(),
-                    onSubmit = { onDismiss() },
+                    onDismiss = onDismiss,
+                    onConfirmVisit = { draft: VisitFeedbackDraft ->
+                        val userId = currentUserId ?: return@VisitFeedbackPrompt
+                        val spotId = draft.selectedPlaceId?.toLongOrNull() ?: return@VisitFeedbackPrompt
+                        scope.launch {
+                            spotRatingRepository.upsertRating(
+                                spotId = spotId,
+                                userId = userId,
+                                noise = draft.noise,
+                                comfort = draft.comfort,
+                                snacks = draft.snacks,
+                                powerOutlet = draft.hasPowerOutlet,
+                            )
+                            onSubmitted()
+                        }
+                    },
                 )
                 Surface(
                     modifier = Modifier
