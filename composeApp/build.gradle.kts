@@ -1,4 +1,3 @@
-import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -15,7 +14,7 @@ kotlin {
             jvmTarget.set(JvmTarget.JVM_11)
         }
     }
-    
+
     listOf(
         iosArm64(),
         iosSimulatorArm64()
@@ -34,7 +33,9 @@ kotlin {
             implementation(libs.maps.compose)
             implementation(libs.play.services.maps)
             implementation(libs.play.services.location)
+            implementation("io.coil-kt.coil3:coil-network-okhttp:3.0.4")
         }
+
         commonMain.dependencies {
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
@@ -46,20 +47,20 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation("org.jetbrains.compose.material:material-icons-extended:1.7.0")
 
-            // 1. OPRAVA: Změna z libs.kotlinx... na libs.ktor.serialization.kotlinx.json
-            // (Předpokládám, že libs.ktor... v TOML máš, ale libs.kotlinx ne)
+            implementation(libs.kotlinx.serialization.json)
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.kotlinx.json)
-
-            // 2. OPRAVA: Zakomentuj MOKO, pokud je nemáš v libs.versions.toml
-            // Pokud je tam přidáš, můžeš je zase odkomentovat.
-            // implementation(libs.moko.permissions)
-            // implementation(libs.moko.geo)
+            implementation("io.github.jan-tennert.supabase:postgrest-kt:3.4.1")
+            implementation("io.github.jan-tennert.supabase:auth-kt:3.4.1")
+            implementation("io.github.jan-tennert.supabase:storage-kt:3.4.1")
+            implementation("io.coil-kt.coil3:coil-compose:3.0.4")
         }
+
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
         }
+
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
@@ -67,26 +68,29 @@ kotlin {
 }
 
 android {
-    namespace = "com.example.unit2026"
+    namespace = "com.example.geogoon"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.example.unit2026"
+        applicationId = "com.example.geogoon"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
     }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
     buildTypes {
         getByName("release") {
             isMinifyEnabled = false
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
