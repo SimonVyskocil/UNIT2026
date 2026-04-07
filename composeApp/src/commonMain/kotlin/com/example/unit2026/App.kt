@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.unit2026.database.AuthRepository
+import com.example.unit2026.database.SpotRepository
 import com.example.unit2026.database.SupabaseClientProvider
 import com.example.unit2026.presentation.GalleryScreen
 import com.example.unit2026.presentation.LoginScreen
@@ -42,59 +43,69 @@ val DarkColorPalette = darkColorScheme(
 @Preview
 fun App() {
     val authRepository = remember { AuthRepository(SupabaseClientProvider.client) }
+    val spotRepository = remember { SpotRepository(SupabaseClientProvider.client) }
     var currentScreen by remember { mutableStateOf(if (authRepository.isLoggedIn()) "swiper" else "login") }
     val savedPlaces = remember { mutableStateListOf<Place>() }
 
     MaterialTheme(
         colorScheme = if (isSystemInDarkTheme()) DarkColorPalette else LightColorPalette
     ) {
-        when (currentScreen) {
-            "login" -> LoginScreen(
-                authRepository = authRepository,
-                onLoginSuccess = { currentScreen = "swiper" },
-                onGoToSignUp = { currentScreen = "signup" }
-            )
-            "signup" -> SignUpScreen(
-                authRepository = authRepository,
-                onSignUpSuccess = {
-                    if (authRepository.isLoggedIn()) {
-                        currentScreen = "swiper"
-                    } else {
-                        currentScreen = "login"
-                    }
-                },
-                onGoToLogin = { currentScreen = "login" }
-            )
-            else -> {
-                Scaffold(
-                    bottomBar = {
-                        NavigationBar {
-                            NavigationBarItem(
-                                selected = currentScreen == "swiper",
-                                onClick = { currentScreen = "swiper" },
-                                icon = { Icon(Icons.Default.ThumbUp, contentDescription = "Swipe") },
-                                label = { Text("Swipe") }
-                            )
-                            NavigationBarItem(
-                                selected = currentScreen == "gallery",
-                                onClick = { currentScreen = "gallery" },
-                                icon = { Icon(Icons.Default.List, contentDescription = "Gallery") },
-                                label = { Text("Gallery") }
-                            )
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background,
+            contentColor = MaterialTheme.colorScheme.onBackground
+        ) {
+            when (currentScreen) {
+                "login" -> LoginScreen(
+                    authRepository = authRepository,
+                    onLoginSuccess = { currentScreen = "swiper" },
+                    onGoToSignUp = { currentScreen = "signup" }
+                )
+                "signup" -> SignUpScreen(
+                    authRepository = authRepository,
+                    onSignUpSuccess = {
+                        if (authRepository.isLoggedIn()) {
+                            currentScreen = "swiper"
+                        } else {
+                            currentScreen = "login"
                         }
-                    }
-                ) { paddingValues ->
-                    Box(modifier = Modifier.padding(paddingValues)) {
-                        when (currentScreen) {
-                            "swiper" -> SwiperScreen(onPlaceSaved = { place ->
-                                if (!savedPlaces.contains(place)) {
-                                    savedPlaces.add(place)
-                                }
-                            })
-                            "gallery" -> GalleryScreen(
-                                savedPlaces = savedPlaces,
-                                onDeletePlace = { savedPlaces.remove(it) }
-                            )
+                    },
+                    onGoToLogin = { currentScreen = "login" }
+                )
+                else -> {
+                    Scaffold(
+                        bottomBar = {
+                            NavigationBar {
+                                NavigationBarItem(
+                                    selected = currentScreen == "swiper",
+                                    onClick = { currentScreen = "swiper" },
+                                    icon = { Icon(Icons.Default.ThumbUp, contentDescription = "Swipe") },
+                                    label = { Text("Swipe") }
+                                )
+                                NavigationBarItem(
+                                    selected = currentScreen == "gallery",
+                                    onClick = { currentScreen = "gallery" },
+                                    icon = { Icon(Icons.Default.List, contentDescription = "Gallery") },
+                                    label = { Text("Gallery") }
+                                )
+                            }
+                        }
+                    ) { paddingValues ->
+                        Box(modifier = Modifier.padding(paddingValues)) {
+                            when (currentScreen) {
+                                "swiper" -> SwiperScreen(
+                                    spotRepository = spotRepository,
+                                    onPlaceSaved = { place ->
+                                        if (!savedPlaces.contains(place)) {
+                                            savedPlaces.add(place)
+                                        }
+                                    }
+                                )
+                                "gallery" -> GalleryScreen(
+                                    savedPlaces = savedPlaces,
+                                    onDeletePlace = { savedPlaces.remove(it) }
+                                )
+                            }
                         }
                     }
                 }

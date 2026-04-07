@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.unit2026.presentation.Place
+import coil3.compose.AsyncImage
 import org.jetbrains.compose.resources.painterResource
 import unit2026.composeapp.generated.resources.Res
 import unit2026.composeapp.generated.resources.compose_multiplatform
@@ -45,22 +49,26 @@ fun PlaceCard(
                 modifier = Modifier
                     .fillMaxSize()
                     .clickable {
-                        isDescriptionVisible = !isDescriptionVisible
-                        currentImageIndex = (currentImageIndex + 1) % place.images.size
+                        if (place.images.isNotEmpty()) {
+                            currentImageIndex = (currentImageIndex + 1) % place.images.size
+                        }
                     }
             ) {
-                Image(
-                    painter = painterResource(Res.drawable.compose_multiplatform), // Improvising with default
-                    contentDescription = place.name,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    colorFilter = when (currentImageIndex % 3) {
-                        0 -> null
-                        1 -> androidx.compose.ui.graphics.ColorFilter.tint(MaterialTheme.colorScheme.primary, blendMode = androidx.compose.ui.graphics.BlendMode.Color)
-                        else -> androidx.compose.ui.graphics.ColorFilter.tint(Color.Magenta, blendMode = androidx.compose.ui.graphics.BlendMode.Color)
-                    }
-                )
-                
+                if (place.images.isNotEmpty()) {
+                    AsyncImage(
+                        model = place.images[currentImageIndex],
+                        contentDescription = place.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+                } else {
+                    Image(
+                        painter = painterResource(Res.drawable.compose_multiplatform),
+                        contentDescription = place.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+                }
             }
 
             // Gradient Overlay
@@ -84,31 +92,55 @@ fun PlaceCard(
                         .align(Alignment.BottomStart)
                         .padding(20.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = place.name,
-                            color = Color.White,
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                    Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "⭐", // Using emoji as fallback if icons are being stubborn
-                                fontSize = 18.sp,
-                                modifier = Modifier.padding(bottom = 2.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = place.rating.toString(),
+                                text = place.name,
                                 color = Color.White,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Medium
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold
                             )
+                            if (place.certified) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(
+                                    imageVector = Icons.Default.Verified,
+                                    contentDescription = "Certified",
+                                    tint = Color(0xFF4CAF50),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         }
+                        if (place.powerOutlet) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Bolt,
+                                    contentDescription = "Power Outlets",
+                                    tint = Color.Yellow,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Power Outlets Available",
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "⭐",
+                            fontSize = 18.sp,
+                            modifier = Modifier.padding(bottom = 2.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = place.rating.toString(),
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
 
                     Text(
@@ -127,9 +159,9 @@ fun PlaceCard(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        InfoTag(label = "Noise: ${place.noise}")
-                        InfoTag(label = "Comfort: ${place.comfort}")
-                        InfoTag(label = "Snacks: ${place.snacksAvailability}")
+                        InfoTag(label = "Noise: ${getNoiseLabel(place.noise)}")
+                        InfoTag(label = "Comfort: ${getComfortLabel(place.comfort)}")
+                        InfoTag(label = "Refreshments: ${getRefreshmentsLabel(place.refreshments)}")
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -142,7 +174,9 @@ fun PlaceCard(
                     )
                 }
             }
-            
+
+            // Image Indicators
+            if (place.images.size > 1) {
                 Row(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -156,7 +190,6 @@ fun PlaceCard(
                                 .clip(androidx.compose.foundation.shape.CircleShape)
                                 .clickable {
                                     currentImageIndex = index
-                                    println("Switched to image index: $index")
                                 },
                             contentAlignment = Alignment.Center
                         ) {
@@ -168,6 +201,7 @@ fun PlaceCard(
                         }
                     }
                 }
+            }
         }
     }
 }
@@ -186,4 +220,25 @@ fun InfoTag(label: String) {
             fontWeight = FontWeight.Bold
         )
     }
+}
+
+private fun getNoiseLabel(noise: Int): String = when (noise) {
+    1 -> "Quiet"
+    2 -> "Moderate"
+    3 -> "Loud"
+    else -> "Unknown"
+}
+
+private fun getComfortLabel(comfort: Int): String = when (comfort) {
+    1 -> "Basic"
+    2 -> "Good"
+    3 -> "Excellent"
+    else -> "Unknown"
+}
+
+private fun getRefreshmentsLabel(refreshments: Int): String = when (refreshments) {
+    1 -> "None"
+    2 -> "Snacks"
+    3 -> "Full Menu"
+    else -> "Unknown"
 }

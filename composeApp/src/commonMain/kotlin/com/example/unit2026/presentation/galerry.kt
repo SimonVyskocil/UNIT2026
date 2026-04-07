@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.unit2026.components.PlaceCard
+import coil3.compose.AsyncImage
 import org.jetbrains.compose.resources.painterResource
 import unit2026.composeapp.generated.resources.Res
 import unit2026.composeapp.generated.resources.compose_multiplatform
@@ -93,12 +94,21 @@ fun GalleryItem(
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            Image(
-                painter = painterResource(Res.drawable.compose_multiplatform),
-                contentDescription = place.name,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
+            if (place.images.isNotEmpty()) {
+                AsyncImage(
+                    model = place.images.first(),
+                    contentDescription = place.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Image(
+                    painter = painterResource(Res.drawable.compose_multiplatform),
+                    contentDescription = place.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
             
             // Delete button
             IconButton(
