@@ -26,6 +26,24 @@ class AuthRepository(
         return supabase.auth.currentUserOrNull()?.email
     }
 
+    fun currentFullName(): String {
+        val user = supabase.auth.currentUserOrNull()
+
+        val firstName = user?.userMetadata
+            ?.get("first_name")
+            ?.toString()
+            ?.removeSurrounding("\"")
+
+        val lastName = user?.userMetadata
+            ?.get("last_name")
+            ?.toString()
+            ?.removeSurrounding("\"")
+
+        return listOf(firstName, lastName)
+            .filter { !it.isNullOrBlank() }
+            .joinToString(" ")
+    }
+
     suspend fun login(email: String, password: String): String? {
         if (email.isBlank()) return "Vypln email"
         if (password.isBlank()) return "Vypln heslo"
