@@ -66,9 +66,12 @@ import cafe.adriel.voyager.navigator.tab.TabOptions
 import com.example.unit2026.database.AuthRepository
 import com.example.unit2026.database.SpotRepository
 import com.example.unit2026.database.SpotRatingRepository
+import com.example.unit2026.database.SpotSuggestionRepository
 import com.example.unit2026.database.SpotSwipeAction
 import com.example.unit2026.database.SpotSwipeRepository
 import com.example.unit2026.database.SupabaseClientProvider
+import com.example.unit2026.presentation.AddStudySpotDraft
+import com.example.unit2026.presentation.AddStudySpotScreen
 import com.example.unit2026.presentation.GalleryScreen
 import com.example.unit2026.presentation.LoginScreen
 import com.example.unit2026.presentation.Place
@@ -145,6 +148,10 @@ private val LocalRefreshDiscover = compositionLocalOf<suspend () -> List<Place>>
 private val LocalOnDismissPlace = compositionLocalOf<(Place) -> Unit> { {} }
 private val LocalOnSavePlace = compositionLocalOf<(Place) -> Unit> { {} }
 private val LocalOnDeleteSavedPlace = compositionLocalOf<(Place) -> Unit> { {} }
+private val LocalOpenMapForPlace = compositionLocalOf<(Place) -> Unit> { {} }
+private val LocalOpenRatingForPlace = compositionLocalOf<(Place) -> Unit> { {} }
+private val LocalSelectedMapPlaceId = compositionLocalOf<String?> { null }
+private val LocalClearSelectedMapPlace = compositionLocalOf<() -> Unit> { {} }
 private val AppRootScreen: Screen = UnitShellScreen
 
 private enum class AuthMode {
@@ -177,10 +184,14 @@ private fun AuthGate(
 private object UnitShellScreen : Screen {
     @Composable
     override fun Content() {
+        var showAddSpot by remember { mutableStateOf(false) }
         var showVisitFeedback by remember { mutableStateOf(false) }
+        var selectedRatingPlaceId by remember { mutableStateOf<String?>(null) }
+        var selectedMapPlaceId by remember { mutableStateOf<String?>(null) }
         val authRepository = remember { AuthRepository(SupabaseClientProvider.client) }
         val spotRepository = remember { SpotRepository(SupabaseClientProvider.client) }
         val spotRatingRepository = remember { SpotRatingRepository(SupabaseClientProvider.client) }
+        val spotSuggestionRepository = remember { SpotSuggestionRepository(SupabaseClientProvider.client) }
         val spotSwipeRepository = remember { SpotSwipeRepository(SupabaseClientProvider.client) }
         val currentUserId = remember { authRepository.currentUserId() }
         val scope = rememberCoroutineScope()
@@ -264,6 +275,15 @@ private object UnitShellScreen : Screen {
                     )
                 }
             },
+            LocalOpenMapForPlace provides { place ->
+                selectedMapPlaceId = place.id
+            },
+            LocalOpenRatingForPlace provides { place ->
+                selectedRatingPlaceId = place.id
+                showVisitFeedback = true
+            },
+            LocalSelectedMapPlaceId provides selectedMapPlaceId,
+            LocalClearSelectedMapPlace provides { selectedMapPlaceId = null },
         ) {
             TabNavigator(DiscoverTab) {
                 Scaffold(
@@ -284,16 +304,28 @@ private object UnitShellScreen : Screen {
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
                                 .padding(end = 16.dp, top = 12.dp),
-                            onClick = { showVisitFeedback = true },
+                            onClick = { showAddSpot = true },
                         )
+                        if (showAddSpot) {
+                            AddSpotOverlay(
+                                currentUserId = currentUserId,
+                                spotSuggestionRepository = spotSuggestionRepository,
+                                onDismiss = { showAddSpot = false },
+                                onSubmitted = { showAddSpot = false },
+                            )
+                        }
                         if (showVisitFeedback) {
                             VisitFeedbackOverlay(
                                 places = allPlaces,
+                                initialSelectedPlaceId = selectedRatingPlaceId,
                                 currentUserId = currentUserId,
                                 spotRepository = spotRepository,
                                 spotRatingRepository = spotRatingRepository,
                                 spotSwipeRepository = spotSwipeRepository,
-                                onDismiss = { showVisitFeedback = false },
+                                onDismiss = {
+                                    selectedRatingPlaceId = null
+                                    showVisitFeedback = false
+                                },
                                 onSubmitted = {
                                     if (currentUserId != null) {
                                         isDiscoverLoading.value = true
@@ -306,6 +338,7 @@ private object UnitShellScreen : Screen {
                                         discoverPlaces.addAll(refreshDiscover())
                                         isDiscoverLoading.value = false
                                     }
+                                    selectedRatingPlaceId = null
                                     showVisitFeedback = false
                                 },
                             )
@@ -339,11 +372,12 @@ private object DiscoverTab : Tab {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp, vertical = 18.dp),
+                .padding(vertical = 10.dp),
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
                     .align(Alignment.TopStart),
             ) {
                 SectionHeader(
@@ -356,7 +390,7 @@ private object DiscoverTab : Tab {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = 104.dp),
+                    .padding(top = 88.dp),
             ) {
                 SwiperScreen(
                     places = discoverPlaces,
@@ -385,7 +419,12 @@ private object MapTab : Tab {
 
     @Composable
     override fun Content() {
-        LocationsMapScreen()
+        val selectedMapPlaceId = LocalSelectedMapPlaceId.current
+        val clearSelectedMapPlace = LocalClearSelectedMapPlace.current
+        LocationsMapScreen(
+            selectedPlaceId = selectedMapPlaceId,
+            onSelectedPlaceHandled = clearSelectedMapPlace,
+        )
     }
 }
 
@@ -403,6 +442,9 @@ private object SavedTab : Tab {
     override fun Content() {
         val savedPlaces = LocalSavedPlaces.current
         val deletePlace = LocalOnDeleteSavedPlace.current
+        val openMapForPlace = LocalOpenMapForPlace.current
+        val openRatingForPlace = LocalOpenRatingForPlace.current
+        val tabNavigator = LocalTabNavigator.current
 
         Box(
             modifier = Modifier
@@ -429,6 +471,11 @@ private object SavedTab : Tab {
                 GalleryScreen(
                     savedPlaces = savedPlaces,
                     onDeletePlace = deletePlace,
+                    onShowInMap = { place ->
+                        openMapForPlace(place)
+                        tabNavigator.current = MapTab
+                    },
+                    onRatePlace = openRatingForPlace,
                 )
             }
         }
@@ -585,8 +632,73 @@ private fun AddSpotButton(
 }
 
 @Composable
+private fun AddSpotOverlay(
+    currentUserId: String?,
+    spotSuggestionRepository: SpotSuggestionRepository,
+    onDismiss: () -> Unit,
+    onSubmitted: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.28f)),
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp, vertical = 18.dp),
+            shape = RoundedCornerShape(32.dp),
+            color = MaterialTheme.colorScheme.background,
+            tonalElevation = 8.dp,
+            shadowElevation = 24.dp,
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                AddStudySpotScreen(
+                    modifier = Modifier.fillMaxSize(),
+                    onSubmit = { draft: AddStudySpotDraft ->
+                        onSubmitted()
+                        val userId = currentUserId ?: return@AddStudySpotScreen
+                        scope.launch {
+                            spotSuggestionRepository.submitSuggestion(
+                                name = draft.placeName,
+                                comment = draft.comment,
+                                userId = userId,
+                            )
+                        }
+                    },
+                )
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp)
+                        .size(34.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onDismiss,
+                        ),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "x",
+                            color = MaterialTheme.colorScheme.onSurface,
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun VisitFeedbackOverlay(
     places: List<Place>,
+    initialSelectedPlaceId: String?,
     currentUserId: String?,
     spotRepository: SpotRepository,
     spotRatingRepository: SpotRatingRepository,
@@ -613,6 +725,7 @@ private fun VisitFeedbackOverlay(
             Box(modifier = Modifier.fillMaxSize()) {
                 VisitFeedbackPrompt(
                     places = places,
+                    initialSelectedPlaceId = initialSelectedPlaceId,
                     modifier = Modifier.fillMaxSize(),
                     onDismiss = onDismiss,
                     onConfirmVisit = { draft: VisitFeedbackDraft ->

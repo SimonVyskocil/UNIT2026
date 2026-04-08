@@ -48,15 +48,18 @@ data class VisitFeedbackDraft(
 @Composable
 fun VisitFeedbackPrompt(
     places: List<Place>,
+    initialSelectedPlaceId: String? = null,
     modifier: Modifier = Modifier,
     onDismiss: () -> Unit,
     onConfirmVisit: (VisitFeedbackDraft) -> Unit,
-    ) {
-    val safePlaces = places.take(6)
-    var draft by remember(safePlaces) {
+ ) {
+    val safePlaces = places
+    var draft by remember(safePlaces, initialSelectedPlaceId) {
+        val resolvedInitialId = safePlaces.firstOrNull { it.id == initialSelectedPlaceId }?.id
+            ?: safePlaces.firstOrNull()?.id
         mutableStateOf(
             VisitFeedbackDraft(
-                selectedPlaceId = safePlaces.firstOrNull()?.id,
+                selectedPlaceId = resolvedInitialId,
             ),
         )
     }

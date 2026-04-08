@@ -49,7 +49,10 @@ fun calculateDistance(userLat: Double, userLng: Double, poiLat: Double, poiLng: 
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("MissingPermission")
 @Composable
-actual fun LocationsMapScreen() {
+actual fun LocationsMapScreen(
+    selectedPlaceId: String?,
+    onSelectedPlaceHandled: () -> Unit,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -147,6 +150,19 @@ actual fun LocationsMapScreen() {
     val prague = LatLng(50.0755, 14.4378)
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(prague, 10f)
+    }
+
+    LaunchedEffect(selectedPlaceId, pois) {
+        val targetPoi = pois.firstOrNull { it.id.toString() == selectedPlaceId } ?: return@LaunchedEffect
+        selectedPoi = targetPoi
+        showSheet = true
+        cameraPositionState.animate(
+            CameraUpdateFactory.newLatLngZoom(
+                LatLng(targetPoi.latitude, targetPoi.longitude),
+                16f
+            )
+        )
+        onSelectedPlaceHandled()
     }
 
     Box(

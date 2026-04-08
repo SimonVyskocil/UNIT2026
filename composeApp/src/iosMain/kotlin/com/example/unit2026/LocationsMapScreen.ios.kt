@@ -53,7 +53,10 @@ fun calculateDistanceIos(userLat: Double, userLng: Double, poiLat: Double, poiLn
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalForeignApi::class)
 @Composable
-actual fun LocationsMapScreen() {
+actual fun LocationsMapScreen(
+    selectedPlaceId: String?,
+    onSelectedPlaceHandled: () -> Unit,
+) {
     val scope = rememberCoroutineScope()
     val locationService = remember { LocationService() }
 
@@ -188,6 +191,16 @@ actual fun LocationsMapScreen() {
 
         // Načte data ze Supabase
         pois = locationService.fetchLocations()
+    }
+
+    LaunchedEffect(selectedPlaceId, pois, mapViewRef) {
+        val targetPoi = pois.firstOrNull { it.id.toString() == selectedPlaceId } ?: return@LaunchedEffect
+        selectedPoi = targetPoi
+        showSheet = true
+        val targetCoordinate = CLLocationCoordinate2DMake(targetPoi.latitude, targetPoi.longitude)
+        val region = MKCoordinateRegionMakeWithDistance(targetCoordinate, 1500.0, 1500.0)
+        mapViewRef?.setRegion(region, animated = true)
+        onSelectedPlaceHandled()
     }
 
     Box(

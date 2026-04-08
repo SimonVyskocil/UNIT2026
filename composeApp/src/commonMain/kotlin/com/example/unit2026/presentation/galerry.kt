@@ -31,7 +31,9 @@ import unit2026.composeapp.generated.resources.compose_multiplatform
 @Composable
 fun GalleryScreen(
     savedPlaces: List<Place>,
-    onDeletePlace: (Place) -> Unit
+    onDeletePlace: (Place) -> Unit,
+    onShowInMap: (Place) -> Unit,
+    onRatePlace: (Place) -> Unit,
 ) {
     var selectedPlace by remember { mutableStateOf<Place?>(null) }
 
@@ -70,8 +72,36 @@ fun GalleryScreen(
                         .clickable { selectedPlace = null },
                     contentAlignment = Alignment.Center
                 ) {
-                    Box(modifier = Modifier.padding(16.dp).clickable(enabled = false) {}) {
+                    Column(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .clickable(enabled = false) {},
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
                         PlaceCard(place = place)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    selectedPlace = null
+                                    onShowInMap(place)
+                                },
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text("Zobrazit v mape")
+                            }
+                            Button(
+                                onClick = {
+                                    selectedPlace = null
+                                    onRatePlace(place)
+                                },
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text("Ohodnotit")
+                            }
+                        }
                     }
                 }
             }
@@ -144,4 +174,3 @@ fun GalleryItem(
         }
     }
 }
-

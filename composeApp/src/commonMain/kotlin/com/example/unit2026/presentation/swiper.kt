@@ -28,6 +28,7 @@ fun SwiperScreen(
     onRefreshPlaces: suspend () -> List<Place>,
 ) {
     val scope = rememberCoroutineScope()
+    val swipeAcceptColor = MaterialTheme.colorScheme.primary
 
     LaunchedEffect(hasLoadedInitialData) {
         if (!hasLoadedInitialData) {
@@ -50,37 +51,82 @@ fun SwiperScreen(
         // Left side overlay
         Box(
             modifier = Modifier
-                .fillMaxHeight()
-                .fillMaxWidth(0.5f)
-                .align(Alignment.CenterStart)
+                .fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .background(
+                        Brush.horizontalGradient(
+                            colorStops = arrayOf(
+                                0f to Color.Red.copy(
+                                    alpha = if (currentOffsetX < -50) (-currentOffsetX / 600f).coerceIn(0f, 0.5f) else 0f
+                                ),
+                                0.48f to Color.Red.copy(
+                                    alpha = if (currentOffsetX < -50) (-currentOffsetX / 600f).coerceIn(0f, 0.18f) else 0f
+                                ),
+                                0.5f to Color.Transparent,
+                                1f to Color.Transparent,
+                            )
+                        )
+                    )
+            )
+        }
+
+        // Right side overlay
+        Box(
+            modifier = Modifier
+                .fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .background(
+                        Brush.horizontalGradient(
+                            colorStops = arrayOf(
+                                0f to Color.Transparent,
+                                0.5f to Color.Transparent,
+                                0.52f to swipeAcceptColor.copy(
+                                    alpha = if (currentOffsetX > 50) (currentOffsetX / 600f).coerceIn(0f, 0.18f) else 0f
+                                ),
+                                1f to swipeAcceptColor.copy(
+                                    alpha = if (currentOffsetX > 50) (currentOffsetX / 600f).coerceIn(0f, 0.5f) else 0f
+                                ),
+                            )
+                        )
+                    )
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(32.dp)
                 .background(
-                    Brush.horizontalGradient(
+                    Brush.verticalGradient(
                         colorStops = arrayOf(
-                            0f to Color.Red.copy(
-                                alpha = if (currentOffsetX < -50) (-currentOffsetX / 600f).coerceIn(0f, 0.5f) else 0f
-                            ),
-                            0.45f to Color.Red.copy(
-                                alpha = if (currentOffsetX < -50) (-currentOffsetX / 600f).coerceIn(0f, 0.18f) else 0f
-                            ),
+                            0f to MaterialTheme.colorScheme.background,
                             1f to Color.Transparent,
                         )
                     )
                 )
         )
 
-        // Right side overlay
         Box(
             modifier = Modifier
-                .fillMaxHeight()
-                .fillMaxWidth(0.5f)
-                .align(Alignment.CenterEnd)
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(32.dp)
                 .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            MaterialTheme.colorScheme.primary.copy(
-                                alpha = if (currentOffsetX > 50) (currentOffsetX / 600f).coerceIn(0f, 0.5f) else 0f
-                            ),
+                    Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0f to Color.Transparent,
+                            1f to MaterialTheme.colorScheme.background,
                         )
                     )
                 )
