@@ -266,18 +266,25 @@ private object UnitShellScreen : Screen {
             },
         ) {
             TabNavigator(DiscoverTab) {
-                Scaffold(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    contentWindowInsets = WindowInsets(0, 0, 0, 0),
-                    bottomBar = {
-                        UnitBottomBar()
-                    },
-                ) { innerPadding ->
+                val tabNavigator = LocalTabNavigator.current
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                ) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .statusBarsPadding()
-                            .padding(innerPadding),
+                            .then(
+                                if (tabNavigator.current == MapTab) {
+                                    Modifier
+                                } else {
+                                    Modifier
+                                        .statusBarsPadding()
+                                        .padding(bottom = 100.dp)
+                                }
+                            ),
                     ) {
                         CurrentTab()
                         AddSpotButton(
@@ -310,6 +317,12 @@ private object UnitShellScreen : Screen {
                                 },
                             )
                         }
+                    }
+
+                    Box(
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    ) {
+                        UnitBottomBar()
                     }
                 }
             }

@@ -193,7 +193,6 @@ actual fun LocationsMapScreen() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
         // Nativní Apple Mapa vložená do Compose
         UIKitView(
