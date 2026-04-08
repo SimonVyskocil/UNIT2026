@@ -124,7 +124,7 @@ actual fun LocationsMapScreen() {
 
                     // 1. Nastavíme MAXIMÁLNÍ velikost (výšku nebo šířku), kterou pin smí mít
                     // Zkusil jsem 48.0, což je standardní profi velikost. Pokud chceš ještě větší, dej třeba 55.0.
-                    val maxSize = 48.0
+                    val maxSize = 60.0
 
                     var finalWidth = maxSize
                     var finalHeight = maxSize
